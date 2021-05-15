@@ -5,7 +5,8 @@ pub enum TokenKind {
     Ident(String),
     NumLit(i64),
     Reserved(Reserved),
-    Punct(Punct)
+    Punct(Punct),
+    Space
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -82,5 +83,9 @@ impl Token {
 
     pub fn new_punct(punct: Punct, loc: Loc) -> Self {
         Annot::new(TokenKind::Punct(punct), loc)
+    }
+
+    pub fn new_space(loc: Loc) -> Self {
+        Annot::new(TokenKind::Space, loc)
     }
 }

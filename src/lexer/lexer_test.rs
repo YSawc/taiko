@@ -22,8 +22,16 @@ fn lexer_test() {
             loc: Loc(0, 0, 0),
         },
         Annot {
+            value: TokenKind::Space,
+            loc: Loc(1, 1, 0),
+        },
+        Annot {
             value: TokenKind::Punct(Punct::Equal),
             loc: Loc(2, 2, 0),
+        },
+        Annot {
+            value: TokenKind::Space,
+            loc: Loc(3, 3, 0),
         },
         Annot {
             value: TokenKind::NumLit(0),
@@ -34,12 +42,24 @@ fn lexer_test() {
             loc: Loc(5, 5, 0),
         },
         Annot {
+            value: TokenKind::Space,
+            loc: Loc(0, 0, 1),
+        },
+        Annot {
             value: TokenKind::Reserved(Reserved::If),
             loc: Loc(1, 2, 1),
         },
         Annot {
+            value: TokenKind::Space,
+            loc: Loc(3, 3, 1),
+        },
+        Annot {
             value: TokenKind::Ident("a".to_string()),
             loc: Loc(4, 4, 1),
+        },
+        Annot {
+            value: TokenKind::Space,
+            loc: Loc(5, 5, 1),
         },
         Annot {
             value: TokenKind::Punct(Punct::Equal),
@@ -50,20 +70,40 @@ fn lexer_test() {
             loc: Loc(7, 7, 1),
         },
         Annot {
+            value: TokenKind::Space,
+            loc: Loc(8, 8, 1),
+        },
+        Annot {
             value: TokenKind::NumLit(1000),
             loc: Loc(9, 13, 1),
+        },
+        Annot {
+            value: TokenKind::Space,
+            loc: Loc(14, 14, 1),
         },
         Annot {
             value: TokenKind::Reserved(Reserved::Then),
             loc: Loc(15, 18, 1),
         },
         Annot {
+            value: TokenKind::Space,
+            loc: Loc(19, 19, 1),
+        },
+        Annot {
             value: TokenKind::NumLit(5),
             loc: Loc(20, 20, 1),
         },
         Annot {
+            value: TokenKind::Space,
+            loc: Loc(21, 21, 1),
+        },
+        Annot {
             value: TokenKind::Reserved(Reserved::Else),
             loc: Loc(22, 25, 1),
+        },
+        Annot {
+            value: TokenKind::Space,
+            loc: Loc(26, 26, 1),
         },
         Annot {
             value: TokenKind::NumLit(10),

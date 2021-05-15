@@ -8,7 +8,7 @@ pub struct Lexer {
     len: usize,
     absolute_pos: usize,
     relative_pos: usize,
-    line: usize,
+    line_pos: usize,
     reserved: FxHashMap<String, Reserved>,
 }
 
@@ -16,7 +16,7 @@ pub struct Lexer {
 pub enum Error {
     EOF,
     UnexpectedChar,
-    NotMatchPunctuation
+    NotMatchPunctuation,
 }
 
 impl Lexer {
@@ -58,25 +58,30 @@ impl Lexer {
             len,
             absolute_pos: 0,
             relative_pos: 0,
-            line: 0,
+            line_pos: 0,
             reserved,
         }
     }
 
-    fn skip_whitespace(&mut self) {
+    fn skip_whitespace(&mut self) -> Result<Option<Token>, Error> {
         for absolute_pos in self.absolute_pos..self.len {
             let ch = self.code[absolute_pos];
             if ch == '\n' {
-                self.line += 1;
+                self.line_pos += 1;
+                self.absolute_pos += 1;
                 self.relative_pos = 0;
             } else if ch == ' ' {
+                let tok = Token::new_space(Loc(self.relative_pos, self.relative_pos, self.line_pos));
+                self.absolute_pos += 1;
                 self.relative_pos += 1;
+                return Ok(Some(tok));
             } else if !ch.is_ascii_whitespace() {
                 self.absolute_pos = absolute_pos;
-                return;
+                return Ok(None);
             }
         }
         self.absolute_pos = self.len;
+        Ok(None)
     }
 
     fn get(&mut self) -> Result<char, Error> {
@@ -85,7 +90,7 @@ impl Lexer {
         } else {
             let ch = self.code[self.absolute_pos];
             if ch == '\n' {
-                self.line += 1;
+                self.line_pos += 1;
                 self.relative_pos = 0;
             }
             self.absolute_pos += 1;
@@ -104,9 +109,10 @@ impl Lexer {
 
     pub fn tokenize(&mut self) -> Result<Vec<Token>, Error> {
         let mut tokens: Vec<Token> = vec![];
-        self.skip_whitespace();
         loop {
-            self.skip_whitespace();
+            while let Some(tok) = self.skip_whitespace()? {
+                tokens.push(tok);
+            }
             let relative_pos = self.relative_pos;
             let ch: char;
             match self.get() {
@@ -115,7 +121,7 @@ impl Lexer {
             };
             macro_rules! cur_loc {
                 () => {
-                    Loc(relative_pos, self.relative_pos - 1, self.line)
+                    Loc(relative_pos, self.relative_pos - 1, self.line_pos)
                 };
             }
             let token = if ch.is_ascii_alphabetic() || ch == '_' {
@@ -179,8 +185,8 @@ impl Lexer {
                 }
 
                 match punct.contains_key(&ch.to_string()) {
-                 true => Token::new_punct(*punct.get(&ch.to_string()).unwrap(), cur_loc!()),
-                 false => return Err(Error::NotMatchPunctuation),
+                    true => Token::new_punct(*punct.get(&ch.to_string()).unwrap(), cur_loc!()),
+                    false => return Err(Error::NotMatchPunctuation),
                 }
             } else {
                 return Err(Error::UnexpectedChar);

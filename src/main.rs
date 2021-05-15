@@ -1,7 +1,7 @@
 use taiko::lexer::lexer::*;
 
 fn main() {
-    let prog = "\na = 0;\nb=3;";
+    let prog = "\na  = 0;\nb=3;";
     println!("{}", prog);
 
     let mut lex = Lexer::new(prog);
