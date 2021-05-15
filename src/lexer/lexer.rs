@@ -71,7 +71,8 @@ impl Lexer {
                 self.absolute_pos += 1;
                 self.relative_pos = 0;
             } else if ch == ' ' {
-                let tok = Token::new_space(Loc(self.relative_pos, self.relative_pos, self.line_pos));
+                let tok =
+                    Token::new_space(Loc(self.relative_pos, self.relative_pos, self.line_pos));
                 self.absolute_pos += 1;
                 self.relative_pos += 1;
                 return Ok(Some(tok));

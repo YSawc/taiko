@@ -6,7 +6,7 @@ pub enum TokenKind {
     NumLit(i64),
     Reserved(Reserved),
     Punct(Punct),
-    Space
+    Space,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
