@@ -6,8 +6,8 @@ use rustc_hash::FxHashMap;
 pub struct Lexer {
     code: Vec<char>,
     len: usize,
-    absolute_pos: usize,
-    relative_pos: usize,
+    absolute_column_pos: usize,
+    relative_column_pos: usize,
     line_pos: usize,
     reserved: FxHashMap<String, Reserved>,
 }
@@ -56,55 +56,55 @@ impl Lexer {
         Lexer {
             code,
             len,
-            absolute_pos: 0,
-            relative_pos: 0,
+            absolute_column_pos: 0,
+            relative_column_pos: 0,
             line_pos: 0,
             reserved,
         }
     }
 
     fn skip_whitespace(&mut self) -> Result<Option<Token>, Error> {
-        for absolute_pos in self.absolute_pos..self.len {
-            let ch = self.code[absolute_pos];
+        for absolute_column_pos in self.absolute_column_pos..self.len {
+            let ch = self.code[absolute_column_pos];
             if ch == '\n' {
                 self.line_pos += 1;
-                self.absolute_pos += 1;
-                self.relative_pos = 0;
+                self.absolute_column_pos += 1;
+                self.relative_column_pos = 0;
             } else if ch == ' ' {
                 let tok =
-                    Token::new_space(Loc(self.relative_pos, self.relative_pos, self.line_pos));
-                self.absolute_pos += 1;
-                self.relative_pos += 1;
+                    Token::new_space(Loc(self.relative_column_pos, self.relative_column_pos, self.line_pos));
+                self.absolute_column_pos += 1;
+                self.relative_column_pos += 1;
                 return Ok(Some(tok));
             } else if !ch.is_ascii_whitespace() {
-                self.absolute_pos = absolute_pos;
+                self.absolute_column_pos = absolute_column_pos;
                 return Ok(None);
             }
         }
-        self.absolute_pos = self.len;
+        self.absolute_column_pos = self.len;
         Ok(None)
     }
 
     fn get(&mut self) -> Result<char, Error> {
-        if self.absolute_pos >= self.len {
+        if self.absolute_column_pos >= self.len {
             Err(Error::EOF)
         } else {
-            let ch = self.code[self.absolute_pos];
+            let ch = self.code[self.absolute_column_pos];
             if ch == '\n' {
                 self.line_pos += 1;
-                self.relative_pos = 0;
+                self.relative_column_pos = 0;
             }
-            self.absolute_pos += 1;
-            self.relative_pos += 1;
+            self.absolute_column_pos += 1;
+            self.relative_column_pos += 1;
             Ok(ch)
         }
     }
 
     fn peek(&mut self) -> Result<char, Error> {
-        if self.absolute_pos >= self.len {
+        if self.absolute_column_pos >= self.len {
             Err(Error::EOF)
         } else {
-            Ok(self.code[self.absolute_pos])
+            Ok(self.code[self.absolute_column_pos])
         }
     }
 
@@ -114,7 +114,7 @@ impl Lexer {
             while let Some(tok) = self.skip_whitespace()? {
                 tokens.push(tok);
             }
-            let relative_pos = self.relative_pos;
+            let relative_column_pos = self.relative_column_pos;
             let ch: char;
             match self.get() {
                 Ok(_ch) => ch = _ch,
@@ -122,7 +122,7 @@ impl Lexer {
             };
             macro_rules! cur_loc {
                 () => {
-                    Loc(relative_pos, self.relative_pos - 1, self.line_pos)
+                    Loc(relative_column_pos, self.relative_column_pos - 1, self.line_pos)
                 };
             }
             let token = if ch.is_ascii_alphabetic() || ch == '_' {
