@@ -222,20 +222,24 @@ impl Lexer {
             };
             tokens.push(token);
         }
+        let eof_line_pos = self.coordinates.last().unwrap().2 + 1;
+        let eof_absolute_column_start_pos = self.coordinates.last().unwrap().1 + 1;
+        let eof_absolute_column_last_pos = self.code.len() - eof_absolute_column_start_pos;
+        self.coordinates.push((
+            eof_absolute_column_start_pos,
+            eof_absolute_column_start_pos + eof_absolute_column_last_pos,
+            eof_line_pos,
+        ));
         Ok(tokens)
     }
 
     pub fn show_loc(&self, loc: &Loc) {
-        if let Some(line) = self.coordinates.iter().find(|x| x.1 >= loc.0) {
+        if let Some(line) = self.coordinates.iter().find(|x| x.2 == loc.2) {
             println!(
                 "{}",
                 self.code[(line.0)..(line.1)].iter().collect::<String>()
             );
-            println!(
-                "{}{}",
-                " ".repeat(loc.0 - line.1),
-                "^".repeat(loc.1 - loc.0 + 1)
-            );
+            println!("{}{}", " ".repeat(loc.0), "^".repeat(loc.1 - loc.0 + 1));
         } else {
             panic!("no location found!");
         };
