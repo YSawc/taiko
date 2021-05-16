@@ -42,6 +42,10 @@ fn lexer_test() {
             loc: Loc(5, 5, 0),
         },
         Annot {
+            value: TokenKind::Line,
+            loc: Loc(6, 6, 0),
+        },
+        Annot {
             value: TokenKind::Space,
             loc: Loc(0, 0, 1),
         },
@@ -114,4 +118,13 @@ fn lexer_test() {
     println!("{}", program);
     let mut lex = Lexer::new(program);
     assert_lexer(&mut lex, ans);
+}
+
+#[test]
+fn lexer_forbidden_tab() {
+    let program = "\ta = 0";
+    println!("{}", program);
+    let mut lex = Lexer::new(program);
+    let result = lex.tokenize();
+    assert_eq!(result, Err(Error::ForbiddenTab));
 }

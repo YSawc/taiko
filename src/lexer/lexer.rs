@@ -18,6 +18,7 @@ pub enum Error {
     EOF,
     UnexpectedChar,
     NotMatchPunctuation,
+    ForbiddenTab,
 }
 
 impl Lexer {
@@ -79,10 +80,17 @@ impl Lexer {
                     self.coordinates
                         .push((0, absolute_column_pos, self.line_pos));
                 }
-
+                let tok = Token::new_line(Loc(
+                    self.relative_column_pos,
+                    self.relative_column_pos,
+                    self.line_pos,
+                ));
                 self.line_pos += 1;
                 self.absolute_column_pos += 1;
                 self.relative_column_pos = 0;
+                return Ok(Some(tok));
+            } else if ch == '\t' {
+                return Err(Error::ForbiddenTab);
             } else if ch == ' ' {
                 let tok = Token::new_space(Loc(
                     self.relative_column_pos,
