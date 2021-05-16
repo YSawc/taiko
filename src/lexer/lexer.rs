@@ -9,6 +9,7 @@ pub struct Lexer {
     absolute_column_pos: usize,
     relative_column_pos: usize,
     line_pos: usize,
+    coordinates: Vec<(usize, usize, usize)>,
     reserved: FxHashMap<String, Reserved>,
 }
 
@@ -59,6 +60,7 @@ impl Lexer {
             absolute_column_pos: 0,
             relative_column_pos: 0,
             line_pos: 0,
+            coordinates: vec![],
             reserved,
         }
     }
@@ -67,12 +69,26 @@ impl Lexer {
         for absolute_column_pos in self.absolute_column_pos..self.len {
             let ch = self.code[absolute_column_pos];
             if ch == '\n' {
+                if let Some(coordinate) = self.coordinates.clone().last() {
+                    self.coordinates.push((
+                        coordinate.0 + 1,
+                        self.absolute_column_pos,
+                        self.line_pos,
+                    ));
+                } else {
+                    self.coordinates
+                        .push((0, absolute_column_pos, self.line_pos));
+                }
+
                 self.line_pos += 1;
                 self.absolute_column_pos += 1;
                 self.relative_column_pos = 0;
             } else if ch == ' ' {
-                let tok =
-                    Token::new_space(Loc(self.relative_column_pos, self.relative_column_pos, self.line_pos));
+                let tok = Token::new_space(Loc(
+                    self.relative_column_pos,
+                    self.relative_column_pos,
+                    self.line_pos,
+                ));
                 self.absolute_column_pos += 1;
                 self.relative_column_pos += 1;
                 return Ok(Some(tok));
@@ -122,7 +138,11 @@ impl Lexer {
             };
             macro_rules! cur_loc {
                 () => {
-                    Loc(relative_column_pos, self.relative_column_pos - 1, self.line_pos)
+                    Loc(
+                        relative_column_pos,
+                        self.relative_column_pos - 1,
+                        self.line_pos,
+                    )
                 };
             }
             let token = if ch.is_ascii_alphabetic() || ch == '_' {
@@ -195,5 +215,21 @@ impl Lexer {
             tokens.push(token);
         }
         Ok(tokens)
+    }
+
+    pub fn show_loc(&self, loc: &Loc) {
+        if let Some(line) = self.coordinates.iter().find(|x| x.1 >= loc.0) {
+            println!(
+                "{}",
+                self.code[(line.0)..(line.1)].iter().collect::<String>()
+            );
+            println!(
+                "{}{}",
+                " ".repeat(loc.0 - line.1),
+                "^".repeat(loc.1 - loc.0 + 1)
+            );
+        } else {
+            panic!("no location found!");
+        };
     }
 }
