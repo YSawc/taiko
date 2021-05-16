@@ -13,106 +13,56 @@ fn assert_lexer(lexer: Lexer, ans: Vec<Annot<TokenKind>>) {
     }
 }
 
+#[cfg(test)]
+macro_rules! Token (
+    (Ident($item:expr), ($loc_0:expr, $loc_1:expr, $loc_2:expr)) => {
+        Token::new_ident($item, Loc($loc_0, $loc_1, $loc_2))
+    };
+    (Space, ($loc_0:expr, $loc_1:expr, $loc_2:expr)) => {
+        Token::new_space(Loc($loc_0, $loc_1, $loc_2))
+    };
+    (Punct($item:path), ($loc_0:expr, $loc_1:expr, $loc_2:expr)) => {
+        Token::new_punct($item, Loc($loc_0, $loc_1, $loc_2))
+    };
+    (Reserved($item:path), ($loc_0:expr, $loc_1:expr, $loc_2:expr)) => {
+        Token::new_reserved($item, Loc($loc_0, $loc_1, $loc_2))
+    };
+    (NumLit($num:expr), ($loc_0:expr, $loc_1:expr, $loc_2:expr)) => {
+        Token::new_numlit($num, Loc($loc_0, $loc_1, $loc_2))
+    };
+    (Line, ($loc_0:expr, $loc_1:expr, $loc_2:expr)) => {
+        Token::new_line(Loc($loc_0, $loc_1, $loc_2))
+    };
+);
+
 #[test]
 fn lexer_test() {
     let program = "a = 0;\n if a == 1_000 then 5 else 10";
     let ans = vec![
-        Annot {
-            value: TokenKind::Ident("a".to_string()),
-            loc: Loc(0, 0, 0),
-        },
-        Annot {
-            value: TokenKind::Space,
-            loc: Loc(1, 1, 0),
-        },
-        Annot {
-            value: TokenKind::Punct(Punct::Equal),
-            loc: Loc(2, 2, 0),
-        },
-        Annot {
-            value: TokenKind::Space,
-            loc: Loc(3, 3, 0),
-        },
-        Annot {
-            value: TokenKind::NumLit(0),
-            loc: Loc(4, 4, 0),
-        },
-        Annot {
-            value: TokenKind::Punct(Punct::Semi),
-            loc: Loc(5, 5, 0),
-        },
-        Annot {
-            value: TokenKind::Line,
-            loc: Loc(6, 6, 0),
-        },
-        Annot {
-            value: TokenKind::Space,
-            loc: Loc(0, 0, 1),
-        },
-        Annot {
-            value: TokenKind::Reserved(Reserved::If),
-            loc: Loc(1, 2, 1),
-        },
-        Annot {
-            value: TokenKind::Space,
-            loc: Loc(3, 3, 1),
-        },
-        Annot {
-            value: TokenKind::Ident("a".to_string()),
-            loc: Loc(4, 4, 1),
-        },
-        Annot {
-            value: TokenKind::Space,
-            loc: Loc(5, 5, 1),
-        },
-        Annot {
-            value: TokenKind::Punct(Punct::Equal),
-            loc: Loc(6, 6, 1),
-        },
-        Annot {
-            value: TokenKind::Punct(Punct::Equal),
-            loc: Loc(7, 7, 1),
-        },
-        Annot {
-            value: TokenKind::Space,
-            loc: Loc(8, 8, 1),
-        },
-        Annot {
-            value: TokenKind::NumLit(1000),
-            loc: Loc(9, 13, 1),
-        },
-        Annot {
-            value: TokenKind::Space,
-            loc: Loc(14, 14, 1),
-        },
-        Annot {
-            value: TokenKind::Reserved(Reserved::Then),
-            loc: Loc(15, 18, 1),
-        },
-        Annot {
-            value: TokenKind::Space,
-            loc: Loc(19, 19, 1),
-        },
-        Annot {
-            value: TokenKind::NumLit(5),
-            loc: Loc(20, 20, 1),
-        },
-        Annot {
-            value: TokenKind::Space,
-            loc: Loc(21, 21, 1),
-        },
-        Annot {
-            value: TokenKind::Reserved(Reserved::Else),
-            loc: Loc(22, 25, 1),
-        },
-        Annot {
-            value: TokenKind::Space,
-            loc: Loc(26, 26, 1),
-        },
-        Annot {
-            value: TokenKind::NumLit(10),
-            loc: Loc(27, 28, 1),
-        },
+        Token![Ident("a".to_string()), (0, 0, 0)],
+        Token![Space, (1, 1, 0)],
+        Token![Punct(Punct::Equal), (2, 2, 0)],
+        Token![Space, (3, 3, 0)],
+        Token![NumLit(0), (4, 4, 0)],
+        Token![Punct(Punct::Semi), (5, 5, 0)],
+        Token![Line, (6, 6, 0)],
+        Token![Space, (0, 0, 1)],
+        Token![Reserved(Reserved::If), (1, 2, 1)],
+        Token![Space, (3, 3, 1)],
+        Token![Ident("a".to_string()), (4, 4, 1)],
+        Token![Space, (5, 5, 1)],
+        Token![Punct(Punct::Equal), (6, 6, 1)],
+        Token![Punct(Punct::Equal), (7, 7, 1)],
+        Token![Space, (8, 8, 1)],
+        Token![NumLit(1000), (9, 13, 1)],
+        Token![Space, (14, 14, 1)],
+        Token![Reserved(Reserved::Then), (15, 18, 1)],
+        Token![Space, (19, 19, 1)],
+        Token![NumLit(5), (20, 20, 1)],
+        Token![Space, (21, 21, 1)],
+        Token![Reserved(Reserved::Else), (22, 25, 1)],
+        Token![Space, (26, 26, 1)],
+        Token![NumLit(10), (27, 28, 1)],
     ];
 
     println!("{}", program);
