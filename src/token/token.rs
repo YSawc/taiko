@@ -94,3 +94,13 @@ impl Token {
         Annot::new(TokenKind::Line, loc)
     }
 }
+
+impl std::fmt::Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Token![{:?}, {}, {}],",
+            self.value, self.loc.0, self.loc.1
+        )
+    }
+}

@@ -13,6 +13,35 @@ pub struct Lexer {
     reserved: FxHashMap<String, Reserved>,
 }
 
+#[derive(Debug, Clone)]
+pub struct LexerResult {
+    pub code: Vec<char>,
+    pub tokens: Vec<Token>,
+    pub coordinates: Vec<(usize, usize, usize)>,
+}
+
+impl LexerResult {
+    fn new(tokens: Vec<Token>, lexer: Lexer) -> Self {
+        LexerResult {
+            code: lexer.code,
+            tokens,
+            coordinates: lexer.coordinates,
+        }
+    }
+
+    pub fn show_loc(self, loc: &Loc) {
+        if let Some(line) = self.coordinates.iter().find(|x| x.2 == loc.2) {
+            println!(
+                "{}",
+                self.code[(line.0)..(line.1)].iter().collect::<String>()
+            );
+            println!("{}{}", " ".repeat(loc.0), "^".repeat(loc.1 - loc.0 + 1));
+        } else {
+            panic!("no location found!");
+        };
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Error {
     EOF,
@@ -132,7 +161,7 @@ impl Lexer {
         }
     }
 
-    pub fn tokenize(&mut self) -> Result<Vec<Token>, Error> {
+    pub fn tokenize(mut self) -> Result<LexerResult, Error> {
         let mut tokens: Vec<Token> = vec![];
         loop {
             while let Some(tok) = self.skip_whitespace()? {
@@ -222,15 +251,16 @@ impl Lexer {
             };
             tokens.push(token);
         }
-        let eof_line_pos = self.coordinates.last().unwrap().2 + 1;
-        let eof_absolute_column_start_pos = self.coordinates.last().unwrap().1 + 1;
-        let eof_absolute_column_last_pos = self.code.len() - eof_absolute_column_start_pos;
+        let last_line_pos = self.coordinates.last().unwrap().2 + 1;
+        let last_absolute_column_start_pos = self.coordinates.last().unwrap().1 + 1;
+        let last_absolute_column_last_pos = self.code.len() - last_absolute_column_start_pos;
         self.coordinates.push((
-            eof_absolute_column_start_pos,
-            eof_absolute_column_start_pos + eof_absolute_column_last_pos,
-            eof_line_pos,
+            last_absolute_column_start_pos,
+            last_absolute_column_start_pos + last_absolute_column_last_pos,
+            last_line_pos,
         ));
-        Ok(tokens)
+
+        Ok(LexerResult::new(tokens, self))
     }
 
     pub fn show_loc(&self, loc: &Loc) {
