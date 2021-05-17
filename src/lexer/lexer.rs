@@ -6,6 +6,7 @@ use rustc_hash::FxHashMap;
 pub struct Lexer {
     code: Vec<char>,
     len: usize,
+    token_start_pos: usize,
     absolute_column_pos: usize,
     relative_column_pos: usize,
     line_pos: usize,
@@ -87,6 +88,7 @@ impl Lexer {
         Lexer {
             code,
             len,
+            token_start_pos: 0,
             absolute_column_pos: 0,
             relative_column_pos: 0,
             line_pos: 0,
@@ -161,68 +163,59 @@ impl Lexer {
         }
     }
 
-    pub fn tokenize(mut self) -> Result<LexerResult, Error> {
-        let mut tokens: Vec<Token> = vec![];
+    fn cur_loc(&self) -> Loc {
+        Loc(
+            self.token_start_pos,
+            self.relative_column_pos - 1,
+            self.line_pos,
+        )
+    }
+
+    fn read_number_literal(&mut self, ch: char) -> Result<Token, Error> {
+        let mut tok = ch.to_string();
         loop {
-            while let Some(tok) = self.skip_whitespace()? {
-                tokens.push(tok);
-            }
-            let relative_column_pos = self.relative_column_pos;
             let ch: char;
-            match self.get() {
+            match self.peek() {
                 Ok(_ch) => ch = _ch,
                 Err(_) => break,
-            };
-            macro_rules! cur_loc {
-                () => {
-                    Loc(
-                        relative_column_pos,
-                        self.relative_column_pos - 1,
-                        self.line_pos,
-                    )
-                };
             }
-            let token = if ch.is_ascii_alphabetic() || ch == '_' {
-                let mut tok = ch.to_string();
-                loop {
-                    let ch: char;
-                    match self.peek() {
-                        Ok(_ch) => ch = _ch,
-                        Err(_) => {
-                            break;
-                        }
-                    };
-                    if ch.is_ascii_alphanumeric() || ch == '_' {
-                        tok.push(self.get()?);
-                    } else {
-                        break;
-                    }
+            if ch.is_numeric() {
+                tok.push(self.get()?);
+            } else if ch == '_' {
+                self.get()?;
+            } else {
+                break;
+            }
+        }
+        let i = tok.parse::<i64>().unwrap();
+        Ok(self.new_numlit(i))
+    }
+
+    fn read_ascii_alphabetic(&mut self, ch: char) -> Result<Token, Error> {
+        let mut tok = ch.to_string();
+        loop {
+            let ch: char;
+            match self.peek() {
+                Ok(_ch) => ch = _ch,
+                Err(_) => {
+                    break;
                 }
-                match self.reserved.get(&tok) {
-                    Some(reserved) => Token::new_reserved(*reserved, cur_loc!()),
-                    None => Token::new_ident(tok, cur_loc!()),
-                }
-            } else if ch.is_numeric() {
-                let mut tok = ch.to_string();
-                loop {
-                    let ch: char;
-                    match self.peek() {
-                        Ok(_ch) => ch = _ch,
-                        Err(_) => break,
-                    }
-                    if ch.is_numeric() {
-                        tok.push(self.get()?);
-                    } else if ch == '_' {
-                        self.get()?;
-                    } else {
-                        break;
-                    }
-                }
-                let i = tok.parse::<i64>().unwrap();
-                Token::new_numlit(i, cur_loc!())
-            } else if ch.is_ascii_punctuation() {
-                let mut punct = FxHashMap::default();
-                macro_rules! reg_punct {
+            };
+            if ch.is_ascii_alphanumeric() || ch == '_' {
+                tok.push(self.get()?);
+            } else {
+                break;
+            }
+        }
+        match self.reserved.get(&tok) {
+            Some(reserved) => Ok(self.new_reserved(*reserved)),
+            None => Ok(self.new_ident(tok)),
+        }
+    }
+
+    fn read_ascii_punct(&mut self, ch: char) -> Result<Token, Error> {
+        let mut punct = FxHashMap::default();
+        macro_rules! reg_punct {
                     ( $($id:expr => $variant:path),+ ) => {
                         $(
                             punct.insert($id.to_string(), $variant);
@@ -230,22 +223,43 @@ impl Lexer {
                     };
                 }
 
-                reg_punct! {
-                    "+" => Punct::Plus,
-                    "-" => Punct::Minus,
-                    "*" => Punct::Mul,
-                    "/" => Punct::Div,
-                    "(" => Punct::LParen,
-                    ")" => Punct::RParen,
-                    ";" => Punct::Semi,
-                    ":" => Punct::Colon,
-                    "=" => Punct::Equal
-                }
+        reg_punct! {
+            "+" => Punct::Plus,
+            "-" => Punct::Minus,
+            "*" => Punct::Mul,
+            "/" => Punct::Div,
+            "(" => Punct::LParen,
+            ")" => Punct::RParen,
+            ";" => Punct::Semi,
+            ":" => Punct::Colon,
+            "=" => Punct::Equal
+        }
 
-                match punct.contains_key(&ch.to_string()) {
-                    true => Token::new_punct(*punct.get(&ch.to_string()).unwrap(), cur_loc!()),
-                    false => return Err(Error::NotMatchPunctuation),
-                }
+        match punct.contains_key(&ch.to_string()) {
+            true => Ok(self.new_punct(*punct.get(&ch.to_string()).unwrap())),
+            false => Err(Error::NotMatchPunctuation),
+        }
+    }
+
+    pub fn tokenize(mut self) -> Result<LexerResult, Error> {
+        let mut tokens: Vec<Token> = vec![];
+        loop {
+            while let Some(tok) = self.skip_whitespace()? {
+                tokens.push(tok);
+            }
+            self.token_start_pos = self.relative_column_pos;
+            let ch: char;
+            match self.get() {
+                Ok(_ch) => ch = _ch,
+                Err(_) => break,
+            };
+
+            let token = if ch.is_ascii_alphabetic() || ch == '_' {
+                self.read_ascii_alphabetic(ch)?
+            } else if ch.is_numeric() {
+                self.read_number_literal(ch)?
+            } else if ch.is_ascii_punctuation() {
+                self.read_ascii_punct(ch)?
             } else {
                 return Err(Error::UnexpectedChar);
             };
@@ -273,5 +287,32 @@ impl Lexer {
         } else {
             panic!("no location found!");
         };
+    }
+}
+
+#[allow(unused)]
+impl Lexer {
+    fn new_ident(&self, ident: String) -> Token {
+        Annot::new(TokenKind::Ident(ident), self.cur_loc())
+    }
+
+    fn new_reserved(&self, ident: Reserved) -> Token {
+        Annot::new(TokenKind::Reserved(ident), self.cur_loc())
+    }
+
+    fn new_numlit(&self, num: i64) -> Token {
+        Annot::new(TokenKind::NumLit(num), self.cur_loc())
+    }
+
+    fn new_punct(&self, punct: Punct) -> Token {
+        Annot::new(TokenKind::Punct(punct), self.cur_loc())
+    }
+
+    fn new_space(&self) -> Token {
+        Annot::new(TokenKind::Space, self.cur_loc())
+    }
+
+    fn new_line(&self) -> Token {
+        Token::new_line(self.cur_loc())
     }
 }
