@@ -6,6 +6,7 @@ use rustc_hash::FxHashMap;
 pub struct Lexer {
     code: Vec<char>,
     len: usize,
+    line_start_pos: usize,
     token_start_pos: usize,
     absolute_column_pos: usize,
     relative_column_pos: usize,
@@ -88,6 +89,7 @@ impl Lexer {
         Lexer {
             code,
             len,
+            line_start_pos: 0,
             token_start_pos: 0,
             absolute_column_pos: 0,
             relative_column_pos: 0,
@@ -97,29 +99,41 @@ impl Lexer {
         }
     }
 
+    fn push_line_coordinate(&mut self) {
+        self.coordinates
+            .push((self.line_start_pos, self.absolute_column_pos, self.line_pos));
+    }
+
+    fn push_last_coordinate(&mut self) {
+        let last_line_pos = self.line_pos;
+        let last_absolute_column_start_pos = self.line_start_pos;
+        let last_absolute_column_last_pos = self.code.len() - last_absolute_column_start_pos;
+        self.coordinates.push((
+            last_absolute_column_start_pos,
+            last_absolute_column_start_pos + last_absolute_column_last_pos,
+            last_line_pos,
+        ));
+    }
+
+    fn read_eol(&mut self) -> Token {
+        self.push_line_coordinate();
+        let tok = Token::new_line(Loc(
+            self.relative_column_pos,
+            self.relative_column_pos,
+            self.line_pos,
+        ));
+        self.line_pos += 1;
+        self.absolute_column_pos += 1;
+        self.line_start_pos = self.absolute_column_pos;
+        self.relative_column_pos = 0;
+        tok
+    }
+
     fn skip_whitespace(&mut self) -> Result<Option<Token>, Error> {
         for absolute_column_pos in self.absolute_column_pos..self.len {
             let ch = self.code[absolute_column_pos];
             if ch == '\n' {
-                if let Some(coordinate) = self.coordinates.clone().last() {
-                    self.coordinates.push((
-                        coordinate.0 + 1,
-                        self.absolute_column_pos,
-                        self.line_pos,
-                    ));
-                } else {
-                    self.coordinates
-                        .push((0, absolute_column_pos, self.line_pos));
-                }
-                let tok = Token::new_line(Loc(
-                    self.relative_column_pos,
-                    self.relative_column_pos,
-                    self.line_pos,
-                ));
-                self.line_pos += 1;
-                self.absolute_column_pos += 1;
-                self.relative_column_pos = 0;
-                return Ok(Some(tok));
+                return Ok(Some(self.read_eol()));
             } else if ch == '\t' {
                 return Err(Error::ForbiddenTab);
             } else if ch == ' ' {
@@ -146,7 +160,9 @@ impl Lexer {
         } else {
             let ch = self.code[self.absolute_column_pos];
             if ch == '\n' {
+                self.push_line_coordinate();
                 self.line_pos += 1;
+                self.line_start_pos = self.absolute_column_pos + 1;
                 self.relative_column_pos = 0;
             }
             self.absolute_column_pos += 1;
@@ -241,6 +257,33 @@ impl Lexer {
         }
     }
 
+    fn read_comment(&mut self) -> Token {
+        let (line_end_pos, line_pos) = match self.goto_eol() {
+            None => (
+                self.line_start_pos - self.last_coordinate().0 - 2,
+                self.line_pos - 1,
+            ),
+            Some(Error::EOF) => (self.relative_column_pos - 1, self.line_pos),
+            _ => unimplemented!(),
+        };
+
+        Token::new_comment(Loc(self.token_start_pos, line_end_pos, line_pos))
+    }
+
+    fn goto_eol(&mut self) -> Option<Error> {
+        loop {
+            match self.get() {
+                Ok('\n') => return None,
+                Err(Error::EOF) => return Some(Error::EOF),
+                _ => (),
+            }
+        }
+    }
+
+    fn last_coordinate(&self) -> (usize, usize, usize) {
+        *self.coordinates.last().unwrap()
+    }
+
     pub fn tokenize(mut self) -> Result<LexerResult, Error> {
         let mut tokens: Vec<Token> = vec![];
         loop {
@@ -251,7 +294,11 @@ impl Lexer {
             let ch: char;
             match self.get() {
                 Ok(_ch) => ch = _ch,
-                Err(_) => break,
+                Err(Error::EOF) => {
+                    self.push_last_coordinate();
+                    break;
+                }
+                Err(_) => unimplemented!(),
             };
 
             let token = if ch.is_ascii_alphabetic() || ch == '_' {
@@ -259,21 +306,17 @@ impl Lexer {
             } else if ch.is_numeric() {
                 self.read_number_literal(ch)?
             } else if ch.is_ascii_punctuation() {
-                self.read_ascii_punct(ch)?
+                if ch == '#' {
+                    self.token_start_pos = self.relative_column_pos - 1;
+                    self.read_comment()
+                } else {
+                    self.read_ascii_punct(ch)?
+                }
             } else {
                 return Err(Error::UnexpectedChar);
             };
             tokens.push(token);
         }
-        let last_line_pos = self.coordinates.last().unwrap().2 + 1;
-        let last_absolute_column_start_pos = self.coordinates.last().unwrap().1 + 1;
-        let last_absolute_column_last_pos = self.code.len() - last_absolute_column_start_pos;
-        self.coordinates.push((
-            last_absolute_column_start_pos,
-            last_absolute_column_start_pos + last_absolute_column_last_pos,
-            last_line_pos,
-        ));
-
         Ok(LexerResult::new(tokens, self))
     }
 

@@ -37,7 +37,7 @@ macro_rules! Token (
 
 #[test]
 fn lexer_test() {
-    let program = "a = 0;\n if a == 1_000 then 5 else 10";
+    let program = "a = 0;\n if a == 1_000 then 5 else 10;# comment_line";
     let ans = vec![
         Token![Ident("a".to_string()), (0, 0, 0)],
         Token![Space, (1, 1, 0)],
@@ -63,6 +63,8 @@ fn lexer_test() {
         Token![Reserved(Reserved::Else), (22, 25, 1)],
         Token![Space, (26, 26, 1)],
         Token![NumLit(10), (27, 28, 1)],
+        Token![Punct(Punct::Semi), (29, 29, 1)],
+        Token![Punct(Punct::Comment), (30, 43, 1)],
     ];
 
     println!("{}", program);

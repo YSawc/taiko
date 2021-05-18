@@ -65,6 +65,7 @@ pub enum Punct {
     Semi,
     Colon,
     Equal,
+    Comment,
 }
 
 pub type Token = Annot<TokenKind>;
@@ -80,6 +81,10 @@ impl Token {
 
     pub fn new_numlit(num: i64, loc: Loc) -> Self {
         Annot::new(TokenKind::NumLit(num), loc)
+    }
+
+    pub fn new_comment(loc: Loc) -> Self {
+        Annot::new(TokenKind::Punct(Punct::Comment), loc)
     }
 
     pub fn new_punct(punct: Punct, loc: Loc) -> Self {
