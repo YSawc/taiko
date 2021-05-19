@@ -33,6 +33,9 @@ macro_rules! Token (
     (Line, ($loc_0:expr, $loc_1:expr, $loc_2:expr)) => {
         Token::new_line(Loc($loc_0, $loc_1, $loc_2))
     };
+    (EOF, ($loc_0:expr, $loc_1:expr, $loc_2:expr)) => {
+        Token::new_eof(Loc($loc_0, $loc_1, $loc_2))
+    };
 );
 
 #[test]
@@ -65,6 +68,7 @@ fn lexer_test() {
         Token![NumLit(10), (27, 28, 1)],
         Token![Punct(Punct::Semi), (29, 29, 1)],
         Token![Punct(Punct::Comment), (30, 43, 1)],
+        Token![EOF, (44, 44, 1)],
     ];
 
     println!("{}", program);

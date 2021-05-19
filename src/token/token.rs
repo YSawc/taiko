@@ -8,6 +8,7 @@ pub enum TokenKind {
     Punct(Punct),
     Space,
     Line,
+    EOF,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -97,6 +98,9 @@ impl Token {
 
     pub fn new_line(loc: Loc) -> Self {
         Annot::new(TokenKind::Line, loc)
+    }
+    pub fn new_eof(loc: Loc) -> Self {
+        Annot::new(TokenKind::EOF, loc)
     }
 }
 

@@ -296,6 +296,7 @@ impl Lexer {
                 Ok(_ch) => ch = _ch,
                 Err(Error::EOF) => {
                     self.push_last_coordinate();
+                    tokens.push(self.new_eof());
                     break;
                 }
                 Err(_) => unimplemented!(),
@@ -357,5 +358,13 @@ impl Lexer {
 
     fn new_line(&self) -> Token {
         Token::new_line(self.cur_loc())
+    }
+
+    fn new_eof(&self) -> Token {
+        Token::new_eof(Loc(
+            self.relative_column_pos,
+            self.relative_column_pos,
+            self.line_pos,
+        ))
     }
 }
