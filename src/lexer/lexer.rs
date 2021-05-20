@@ -12,7 +12,6 @@ pub struct Lexer {
     absolute_column_pos: usize,
     relative_column_pos: usize,
     line_pos: usize,
-    coordinates: Vec<(usize, usize, usize)>,
     reserved: FxHashMap<String, Reserved>,
 }
 
@@ -28,20 +27,6 @@ impl LexerResult {
             source_info: lexer.source_info,
             tokens,
         }
-    }
-
-    pub fn show_loc(self, loc: &Loc) {
-        if let Some(line) = self.source_info.coordinates.iter().find(|x| x.2 == loc.2) {
-            println!(
-                "{}",
-                self.source_info.code[(line.0)..(line.1)]
-                    .iter()
-                    .collect::<String>()
-            );
-            println!("{}{}", " ".repeat(loc.0), "^".repeat(loc.1 - loc.0 + 1));
-        } else {
-            panic!("no location found!");
-        };
     }
 }
 
@@ -96,14 +81,16 @@ impl Lexer {
             absolute_column_pos: 0,
             relative_column_pos: 0,
             line_pos: 0,
-            coordinates: vec![],
             reserved,
         }
     }
 
     fn push_line_coordinate(&mut self) {
-        self.coordinates
-            .push((self.line_start_pos, self.absolute_column_pos, self.line_pos));
+        self.source_info.coordinates.push((
+            self.line_start_pos,
+            self.absolute_column_pos,
+            self.line_pos,
+        ));
     }
 
     fn push_last_coordinate(&mut self) {
@@ -111,7 +98,7 @@ impl Lexer {
         let last_absolute_column_start_pos = self.line_start_pos;
         let last_absolute_column_last_pos =
             self.source_info.code.len() - last_absolute_column_start_pos;
-        self.coordinates.push((
+        self.source_info.coordinates.push((
             last_absolute_column_start_pos,
             last_absolute_column_start_pos + last_absolute_column_last_pos,
             last_line_pos,
@@ -123,6 +110,7 @@ impl Lexer {
         let tok = Token::new_line(Loc(
             self.relative_column_pos,
             self.relative_column_pos,
+            self.line_pos,
             self.line_pos,
         ));
         self.line_pos += 1;
@@ -143,6 +131,7 @@ impl Lexer {
                 let tok = Token::new_space(Loc(
                     self.relative_column_pos,
                     self.relative_column_pos,
+                    self.line_pos,
                     self.line_pos,
                 ));
                 self.absolute_column_pos += 1;
@@ -186,6 +175,7 @@ impl Lexer {
         Loc(
             self.token_start_pos,
             self.relative_column_pos - 1,
+            self.line_pos,
             self.line_pos,
         )
     }
@@ -270,7 +260,7 @@ impl Lexer {
             _ => unimplemented!(),
         };
 
-        Token::new_comment(Loc(self.token_start_pos, line_end_pos, line_pos))
+        Token::new_comment(Loc(self.token_start_pos, line_end_pos, line_pos, line_pos))
     }
 
     fn goto_eol(&mut self) -> Option<Error> {
@@ -284,7 +274,7 @@ impl Lexer {
     }
 
     fn last_coordinate(&self) -> (usize, usize, usize) {
-        *self.coordinates.last().unwrap()
+        *self.source_info.coordinates.last().unwrap()
     }
 
     pub fn tokenize(mut self) -> Result<LexerResult, Error> {
@@ -323,20 +313,6 @@ impl Lexer {
         }
         Ok(LexerResult::new(tokens, self))
     }
-
-    pub fn show_loc(&self, loc: &Loc) {
-        if let Some(line) = self.coordinates.iter().find(|x| x.2 == loc.2) {
-            println!(
-                "{}",
-                self.source_info.code[(line.0)..(line.1)]
-                    .iter()
-                    .collect::<String>()
-            );
-            println!("{}{}", " ".repeat(loc.0), "^".repeat(loc.1 - loc.0 + 1));
-        } else {
-            panic!("no location found!");
-        };
-    }
 }
 
 #[allow(unused)]
@@ -369,6 +345,7 @@ impl Lexer {
         Token::new_eof(Loc(
             self.relative_column_pos,
             self.relative_column_pos,
+            self.line_pos,
             self.line_pos,
         ))
     }

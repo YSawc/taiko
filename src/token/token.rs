@@ -99,8 +99,30 @@ impl Token {
     pub fn new_line(loc: Loc) -> Self {
         Annot::new(TokenKind::Line, loc)
     }
+
     pub fn new_eof(loc: Loc) -> Self {
         Annot::new(TokenKind::EOF, loc)
+    }
+}
+
+impl Token {
+    pub fn is_space(&self) -> bool {
+        self.value == TokenKind::Space
+    }
+
+    pub fn is_line_term(&self) -> bool {
+        self.value == TokenKind::Line
+    }
+
+    pub fn is_eof(&self) -> bool {
+        self.value == TokenKind::EOF
+    }
+
+    pub fn is_term(&self) -> bool {
+        matches!(
+            self.value,
+            TokenKind::Line | TokenKind::EOF | TokenKind::Punct(Punct::Semi)
+        )
     }
 }
 
