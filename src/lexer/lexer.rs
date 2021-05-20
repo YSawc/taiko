@@ -1,10 +1,11 @@
 use crate::token::token::*;
 use crate::util::annot::*;
+use crate::util::util::*;
 use rustc_hash::FxHashMap;
 
 #[derive(Debug, Clone)]
 pub struct Lexer {
-    code: Vec<char>,
+    source_info: SourceInfo,
     len: usize,
     line_start_pos: usize,
     token_start_pos: usize,
@@ -17,25 +18,25 @@ pub struct Lexer {
 
 #[derive(Debug, Clone)]
 pub struct LexerResult {
-    pub code: Vec<char>,
+    pub source_info: SourceInfo,
     pub tokens: Vec<Token>,
-    pub coordinates: Vec<(usize, usize, usize)>,
 }
 
 impl LexerResult {
     fn new(tokens: Vec<Token>, lexer: Lexer) -> Self {
         LexerResult {
-            code: lexer.code,
+            source_info: lexer.source_info,
             tokens,
-            coordinates: lexer.coordinates,
         }
     }
 
     pub fn show_loc(self, loc: &Loc) {
-        if let Some(line) = self.coordinates.iter().find(|x| x.2 == loc.2) {
+        if let Some(line) = self.source_info.coordinates.iter().find(|x| x.2 == loc.2) {
             println!(
                 "{}",
-                self.code[(line.0)..(line.1)].iter().collect::<String>()
+                self.source_info.code[(line.0)..(line.1)]
+                    .iter()
+                    .collect::<String>()
             );
             println!("{}{}", " ".repeat(loc.0), "^".repeat(loc.1 - loc.0 + 1));
         } else {
@@ -54,8 +55,6 @@ pub enum Error {
 
 impl Lexer {
     pub fn new(code_text: impl Into<String>) -> Self {
-        let code = code_text.into().chars().collect::<Vec<char>>();
-        let len = code.len();
         let mut reserved = FxHashMap::default();
         macro_rules! reg_reserved {
             ( $($id:expr => $variant:path),+ ) => {
@@ -86,8 +85,11 @@ impl Lexer {
             "true" => Reserved::True
         };
 
+        let source_info = SourceInfo::new(code_text);
+        let len = source_info.code.len();
+
         Lexer {
-            code,
+            source_info,
             len,
             line_start_pos: 0,
             token_start_pos: 0,
@@ -107,7 +109,8 @@ impl Lexer {
     fn push_last_coordinate(&mut self) {
         let last_line_pos = self.line_pos;
         let last_absolute_column_start_pos = self.line_start_pos;
-        let last_absolute_column_last_pos = self.code.len() - last_absolute_column_start_pos;
+        let last_absolute_column_last_pos =
+            self.source_info.code.len() - last_absolute_column_start_pos;
         self.coordinates.push((
             last_absolute_column_start_pos,
             last_absolute_column_start_pos + last_absolute_column_last_pos,
@@ -131,7 +134,7 @@ impl Lexer {
 
     fn skip_whitespace(&mut self) -> Result<Option<Token>, Error> {
         for absolute_column_pos in self.absolute_column_pos..self.len {
-            let ch = self.code[absolute_column_pos];
+            let ch = self.source_info.code[absolute_column_pos];
             if ch == '\n' {
                 return Ok(Some(self.read_eol()));
             } else if ch == '\t' {
@@ -158,7 +161,7 @@ impl Lexer {
         if self.absolute_column_pos >= self.len {
             Err(Error::EOF)
         } else {
-            let ch = self.code[self.absolute_column_pos];
+            let ch = self.source_info.code[self.absolute_column_pos];
             if ch == '\n' {
                 self.push_line_coordinate();
                 self.line_pos += 1;
@@ -175,7 +178,7 @@ impl Lexer {
         if self.absolute_column_pos >= self.len {
             Err(Error::EOF)
         } else {
-            Ok(self.code[self.absolute_column_pos])
+            Ok(self.source_info.code[self.absolute_column_pos])
         }
     }
 
@@ -325,7 +328,9 @@ impl Lexer {
         if let Some(line) = self.coordinates.iter().find(|x| x.2 == loc.2) {
             println!(
                 "{}",
-                self.code[(line.0)..(line.1)].iter().collect::<String>()
+                self.source_info.code[(line.0)..(line.1)]
+                    .iter()
+                    .collect::<String>()
             );
             println!("{}{}", " ".repeat(loc.0), "^".repeat(loc.1 - loc.0 + 1));
         } else {
