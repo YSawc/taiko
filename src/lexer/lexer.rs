@@ -159,7 +159,7 @@ impl Lexer {
         }
     }
 
-    fn peek(&mut self) -> Result<char, Error> {
+    fn peek(&self) -> Result<char, Error> {
         if self.absolute_column_pos >= self.len {
             Err(Error::EOF)
         } else {
