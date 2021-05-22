@@ -115,6 +115,15 @@ impl Lexer {
         tok
     }
 
+    fn read_space(&mut self) -> Token {
+        self.token_start_pos = self.absolute_column_pos;
+        while self.peek().unwrap() == ' ' {
+            self.absolute_column_pos += 1;
+            self.relative_column_pos += 1;
+        }
+        Token::new_space(Loc(self.token_start_pos, self.absolute_column_pos - 1))
+    }
+
     fn skip_whitespace(&mut self) -> Result<Option<Token>, Error> {
         for absolute_column_pos in self.absolute_column_pos..self.len {
             let ch = self.source_info.code[absolute_column_pos];
@@ -123,10 +132,7 @@ impl Lexer {
             } else if ch == '\t' {
                 return Err(Error::ForbiddenTab);
             } else if ch == ' ' {
-                let tok = Token::new_space(Loc(self.absolute_column_pos, self.absolute_column_pos));
-                self.absolute_column_pos += 1;
-                self.relative_column_pos += 1;
-                return Ok(Some(tok));
+                return Ok(Some(self.read_space()));
             } else if !ch.is_ascii_whitespace() {
                 self.absolute_column_pos = absolute_column_pos;
                 return Ok(None);

@@ -71,12 +71,8 @@ impl Parser {
     }
 
     fn skip_space(&mut self) {
-        loop {
-            if self.tokens[self.cursor].is_space() {
-                self.cursor += 1;
-            } else {
-                break;
-            }
+        if self.tokens[self.cursor].kind == TokenKind::Space {
+            self.cursor += 1;
         }
     }
 
@@ -295,10 +291,7 @@ impl Parser {
                 })
             }
             TokenKind::EOF => Err(ParseError::EOF),
-            _ => {
-                self.source_info.show_loc(&tok.loc);
-                unimplemented!("{:?}, loc: {:?}", tok.kind, tok.loc)
-            }
+            _ => Err(self.error_unexpected(&tok)),
         }
     }
 
