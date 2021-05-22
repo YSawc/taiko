@@ -1,4 +1,4 @@
-#[allow(unused_imports, dead_code)]
+#[cfg(test)]
 mod test {
     use crate::eval::eval::*;
     use crate::lexer::lexer::*;
