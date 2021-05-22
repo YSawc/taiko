@@ -15,14 +15,18 @@ impl SourceInfo {
     }
 
     pub fn show_loc(&self, loc: &Loc) {
-        if let Some(line) = self.coordinates.iter().find(|x| x.2 == loc.2) {
+        for line in &self.coordinates {
+            if line.1 < loc.0 || line.0 > loc.1 {
+                continue;
+            }
             println!(
                 "{}",
                 self.code[(line.0)..(line.1)].iter().collect::<String>()
             );
-            println!("{}{}", " ".repeat(loc.0), "^".repeat(loc.1 - loc.0 + 1));
-        } else {
-            panic!("no location found!");
-        };
+            use std::cmp::*;
+            let read = if loc.0 < line.0 { 0 } else { loc.0 - line.0 };
+            let length = min(loc.1, line.1) + 1 - max(loc.0, line.0);
+            println!("{}{}", " ".repeat(read), "^".repeat(length));
+        }
     }
 }

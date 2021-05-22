@@ -6,8 +6,17 @@ use crate::value::value::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Node {
-    kind: NodeKind,
-    loc: Loc,
+    pub kind: NodeKind,
+    pub loc: Loc,
+}
+
+impl std::fmt::Display for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.kind {
+            NodeKind::BinOp(op, lhs, rhs) => write!(f, "[{:?} ( {}, {}  )]", op, lhs, rhs),
+            _ => write!(f, "[{:?}]", self.kind),
+        }
+    }
 }
 
 impl Node {
@@ -26,12 +35,23 @@ pub enum NodeKind {
     Sub(Box<Node>, Box<Node>),
     Mul(Box<Node>, Box<Node>),
     Assign(Box<Node>, Box<Node>),
+    BinOp(BinOp, Box<Node>, Box<Node>),
+    CompStmt(Vec<Node>),
+    If(Box<Node>, Box<Node>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum BinOp {
+    Add,
+    Sub,
+    Mul,
+    Eq,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parser {
     tokens: Vec<Token>,
-    source_info: SourceInfo,
+    pub source_info: SourceInfo,
     cursor: usize,
 }
 
@@ -73,6 +93,18 @@ impl Parser {
         }
     }
 
+    fn peek(&mut self) -> &Token {
+        let mut c = self.cursor;
+        loop {
+            let tok = &self.tokens[c];
+            if tok.is_eof() || (!tok.is_line_term() && !tok.is_space()) {
+                return tok;
+            } else {
+                c += 1;
+            }
+        }
+    }
+
     #[allow(unused)]
     fn unget(&mut self) {
         self.cursor -= 1;
@@ -88,12 +120,45 @@ impl Parser {
         token
     }
 
-    fn expect_term(&mut self) -> Result<&Token, ParseError> {
-        let tok = self.get_no_skip_line_term();
+    #[allow(unused)]
+    fn expect_term(&mut self) -> Result<(), ParseError> {
+        let tok = self.get_no_skip_line_term().clone();
         if tok.is_term() {
-            Ok(tok)
+            Ok(())
         } else {
-            Err(ParseError::UnexpectedToken)
+            Err(self.error_unexpected(&tok))
+        }
+    }
+
+    fn expect_reserved(&mut self, expect: Reserved) -> Result<(), ParseError> {
+        let tok = self.get().clone();
+        match tok.kind {
+            TokenKind::Reserved(reserved) => {
+                if reserved == expect {
+                    Ok(())
+                } else {
+                    Err(self.error_unexpected(&tok))
+                }
+            }
+            _ => Err(self.error_unexpected(&tok)),
+        }
+    }
+
+    fn error_unexpected(&self, tok: &Token) -> ParseError {
+        self.source_info.show_loc(&tok.loc);
+        ParseError::UnexpectedToken
+    }
+
+    fn peek_no_skip_line_term(&mut self) -> &Token {
+        &self.tokens[self.cursor]
+    }
+
+    fn get_if_term(&mut self) -> bool {
+        if self.peek_no_skip_line_term().is_term() {
+            self.get_no_skip_line_term();
+            true
+        } else {
+            false
         }
     }
 
@@ -102,42 +167,71 @@ impl Parser {
         &self.tokens[self.cursor]
     }
 
-    fn peek(&mut self) -> &Token {
-        &self.tokens[self.cursor]
-    }
-
-    pub fn parse_comp_stmt(&mut self) -> Result<(), ParseError> {
+    pub fn parse_comp_stmt(&mut self) -> Result<Node, ParseError> {
+        let mut nodes = vec![];
         loop {
-            if self.peek().is_eof() {
-                break;
-            }
-            let node = self.parse_expr()?;
-            println!("{:?}", node);
-            println!("ans {:?}", Parser::eval_node(&node));
-            self.skip_space();
-            if self.expect_term()?.is_eof() {
+            let tok = self.peek();
+            match tok.kind {
+                TokenKind::EOF => break,
+                TokenKind::Reserved(reserved) => match reserved {
+                    Reserved::Else | Reserved::Elsif | Reserved::End => break,
+                    _ => {}
+                },
+                _ => {}
+            };
+            nodes.push(self.parse_expr()?);
+            if !self.get_if_term() {
                 break;
             }
         }
+        let mut loc;
+        if nodes.is_empty() {
+            loc = Loc::new(0, 0);
+        } else {
+            loc = nodes[0].loc;
+            for node in &nodes {
+                loc = loc.merge(node.loc);
+            }
+        }
 
-        Ok(())
+        Ok(Node {
+            kind: NodeKind::CompStmt(nodes),
+            loc,
+        })
     }
 
     pub fn parse_expr(&mut self) -> Result<Node, ParseError> {
-        self.parse_arg_add()
+        self.parse_arg_comp()
+    }
+
+    pub fn parse_arg_comp(&mut self) -> Result<Node, ParseError> {
+        let lhs = self.parse_arg_add()?;
+        let tok = self.peek().clone();
+        match &tok.kind {
+            TokenKind::Punct(Punct::Equal) => {
+                self.get();
+                let rhs = self.parse_arg_comp()?;
+                let loc = lhs.loc.merge(rhs.loc);
+                Ok(Node {
+                    kind: NodeKind::BinOp(BinOp::Eq, Box::new(lhs), Box::new(rhs)),
+                    loc,
+                })
+            }
+            _ => Ok(lhs),
+        }
     }
 
     fn parse_arg_add(&mut self) -> Result<Node, ParseError> {
         let lhs = self.parse_arg_mul()?;
         let tok = self.peek_non_space().clone();
-        match &tok.value {
+        match &tok.kind {
             TokenKind::Punct(ref punct) => match punct {
                 Punct::Plus => {
                     self.get();
                     let rhs = self.parse_arg_add()?;
                     let loc = lhs.loc.merge(rhs.loc);
                     Ok(Node {
-                        kind: NodeKind::Add(Box::new(lhs), Box::new(rhs)),
+                        kind: NodeKind::BinOp(BinOp::Add, Box::new(lhs), Box::new(rhs)),
                         loc,
                     })
                 }
@@ -146,7 +240,7 @@ impl Parser {
                     let rhs = self.parse_arg_add()?;
                     let loc = lhs.loc.merge(rhs.loc);
                     Ok(Node {
-                        kind: NodeKind::Sub(Box::new(lhs), Box::new(rhs)),
+                        kind: NodeKind::BinOp(BinOp::Sub, Box::new(lhs), Box::new(rhs)),
                         loc,
                     })
                 }
@@ -160,13 +254,13 @@ impl Parser {
         let lhs = self.parse_primary()?;
         self.skip_space();
         let tok = self.peek_non_space().clone();
-        match &tok.value {
+        match &tok.kind {
             TokenKind::Punct(Punct::Mul) => {
                 self.get();
                 let rhs = self.parse_arg_mul()?;
                 let loc = lhs.loc.merge(rhs.loc);
                 Ok(Node {
-                    kind: NodeKind::Mul(Box::new(lhs), Box::new(rhs)),
+                    kind: NodeKind::BinOp(BinOp::Mul, Box::new(lhs), Box::new(rhs)),
                     loc,
                 })
             }
@@ -175,23 +269,45 @@ impl Parser {
     }
 
     fn parse_primary(&mut self) -> Result<Node, ParseError> {
-        let tok = self.get();
-        match &tok.value {
+        let tok = self.get().clone();
+        match &tok.kind {
             TokenKind::NumLit(num) => Ok(Node::new_number(*num, tok.loc)),
-            TokenKind::Punct(Punct::LParen) => Ok({
+            TokenKind::Punct(Punct::LParen) => {
                 let node = self.parse_expr()?;
-                let tok = self.get();
-                if tok.value == TokenKind::Punct(Punct::RParen) {
-                    node
+                let tok = self.get().clone();
+                if tok.kind == TokenKind::Punct(Punct::RParen) {
+                    Ok(node)
                 } else {
-                    return Err(ParseError::UnexpectedToken);
+                    Err(self.error_unexpected(&tok))
                 }
-            }),
+            }
+            TokenKind::Reserved(Reserved::If) => {
+                let cond = self.parse_expr()?;
+                println!("if cond {}", cond);
+                self.parse_then()?;
+                let then = self.parse_comp_stmt()?;
+                println!("if then {}", then);
+                self.expect_reserved(Reserved::End)?;
+                let loc = tok.loc.merge(then.loc);
+                Ok(Node {
+                    kind: NodeKind::If(Box::new(cond), Box::new(then)),
+                    loc,
+                })
+            }
             TokenKind::EOF => Err(ParseError::EOF),
             _ => {
-                unimplemented!()
+                self.source_info.show_loc(&tok.loc);
+                unimplemented!("{:?}, loc: {:?}", tok.kind, tok.loc)
             }
         }
+    }
+
+    pub fn parse_then(&mut self) -> Result<(), ParseError> {
+        if self.get_if_term() {
+            return Ok(());
+        }
+        self.expect_reserved(Reserved::Then)?;
+        Ok(())
     }
 
     pub fn eval_node(node: &Node) -> Value {

@@ -66,6 +66,7 @@ pub enum Punct {
     Semi,
     Colon,
     Equal,
+    Assign,
     Comment,
 }
 
@@ -107,20 +108,20 @@ impl Token {
 
 impl Token {
     pub fn is_space(&self) -> bool {
-        self.value == TokenKind::Space
+        self.kind == TokenKind::Space
     }
 
     pub fn is_line_term(&self) -> bool {
-        self.value == TokenKind::Line
+        self.kind == TokenKind::Line
     }
 
     pub fn is_eof(&self) -> bool {
-        self.value == TokenKind::EOF
+        self.kind == TokenKind::EOF
     }
 
     pub fn is_term(&self) -> bool {
         matches!(
-            self.value,
+            self.kind,
             TokenKind::Line | TokenKind::EOF | TokenKind::Punct(Punct::Semi)
         )
     }
@@ -128,10 +129,23 @@ impl Token {
 
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Token![{:?}, {}, {}],",
-            self.value, self.loc.0, self.loc.1
-        )
+        match &self.kind {
+            TokenKind::EOF => write!(f, "Token!{:?}, {}]", self.kind, self.loc.0),
+            TokenKind::Punct(punct) => write!(
+                f,
+                "Token![Punct(Punct::{:?}), {}, {}]",
+                punct, self.loc.0, self.loc.1
+            ),
+            TokenKind::Reserved(reserved) => write!(
+                f,
+                "Token![Reserved(Reserved::{:?}), {}, {}]",
+                reserved, self.loc.0, self.loc.1
+            ),
+            _ => write!(
+                f,
+                "Token![{:?}, {}, {}],",
+                self.kind, self.loc.0, self.loc.1
+            ),
+        }
     }
 }

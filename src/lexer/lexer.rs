@@ -107,12 +107,7 @@ impl Lexer {
 
     fn read_eol(&mut self) -> Token {
         self.push_line_coordinate();
-        let tok = Token::new_line(Loc(
-            self.relative_column_pos,
-            self.relative_column_pos,
-            self.line_pos,
-            self.line_pos,
-        ));
+        let tok = Token::new_line(Loc(self.absolute_column_pos, self.absolute_column_pos));
         self.line_pos += 1;
         self.absolute_column_pos += 1;
         self.line_start_pos = self.absolute_column_pos;
@@ -128,12 +123,7 @@ impl Lexer {
             } else if ch == '\t' {
                 return Err(Error::ForbiddenTab);
             } else if ch == ' ' {
-                let tok = Token::new_space(Loc(
-                    self.relative_column_pos,
-                    self.relative_column_pos,
-                    self.line_pos,
-                    self.line_pos,
-                ));
+                let tok = Token::new_space(Loc(self.absolute_column_pos, self.absolute_column_pos));
                 self.absolute_column_pos += 1;
                 self.relative_column_pos += 1;
                 return Ok(Some(tok));
@@ -172,12 +162,7 @@ impl Lexer {
     }
 
     fn cur_loc(&self) -> Loc {
-        Loc(
-            self.token_start_pos,
-            self.relative_column_pos - 1,
-            self.line_pos,
-            self.line_pos,
-        )
+        Loc(self.token_start_pos, self.absolute_column_pos - 1)
     }
 
     fn read_number_literal(&mut self, ch: char) -> Result<Token, Error> {
@@ -240,9 +225,18 @@ impl Lexer {
             "(" => Punct::LParen,
             ")" => Punct::RParen,
             ";" => Punct::Semi,
-            ":" => Punct::Colon,
-            "=" => Punct::Equal
+            ":" => Punct::Colon
         }
+
+        punct.insert("=".to_string(), {
+            let ch = self.peek()?;
+            if ch == '=' {
+                self.get()?;
+                Punct::Equal
+            } else {
+                Punct::Assign
+            }
+        });
 
         match punct.contains_key(&ch.to_string()) {
             true => Ok(self.new_punct(*punct.get(&ch.to_string()).unwrap())),
@@ -251,16 +245,13 @@ impl Lexer {
     }
 
     fn read_comment(&mut self) -> Token {
-        let (line_end_pos, line_pos) = match self.goto_eol() {
-            None => (
-                self.line_start_pos - self.last_coordinate().0 - 2,
-                self.line_pos - 1,
-            ),
-            Some(Error::EOF) => (self.relative_column_pos - 1, self.line_pos),
+        let line_end_pos = match self.goto_eol() {
+            None => self.line_start_pos - self.last_coordinate().0 - 2,
+            Some(Error::EOF) => self.absolute_column_pos - 1,
             _ => unimplemented!(),
         };
 
-        Token::new_comment(Loc(self.token_start_pos, line_end_pos, line_pos, line_pos))
+        Token::new_comment(Loc(self.token_start_pos, line_end_pos))
     }
 
     fn goto_eol(&mut self) -> Option<Error> {
@@ -283,13 +274,13 @@ impl Lexer {
             while let Some(tok) = self.skip_whitespace()? {
                 tokens.push(tok);
             }
-            self.token_start_pos = self.relative_column_pos;
+            self.token_start_pos = self.absolute_column_pos;
             let ch: char;
             match self.get() {
                 Ok(_ch) => ch = _ch,
                 Err(Error::EOF) => {
                     self.push_last_coordinate();
-                    tokens.push(self.new_eof());
+                    tokens.push(self.new_eof(self.token_start_pos));
                     break;
                 }
                 Err(_) => unimplemented!(),
@@ -301,7 +292,7 @@ impl Lexer {
                 self.read_number_literal(ch)?
             } else if ch.is_ascii_punctuation() {
                 if ch == '#' {
-                    self.token_start_pos = self.relative_column_pos - 1;
+                    self.token_start_pos = self.absolute_column_pos - 1;
                     self.read_comment()
                 } else {
                     self.read_ascii_punct(ch)?
@@ -341,12 +332,7 @@ impl Lexer {
         Token::new_line(self.cur_loc())
     }
 
-    fn new_eof(&self) -> Token {
-        Token::new_eof(Loc(
-            self.relative_column_pos,
-            self.relative_column_pos,
-            self.line_pos,
-            self.line_pos,
-        ))
+    fn new_eof(&self, pos: usize) -> Token {
+        Annot::new_eof(Loc(pos, pos))
     }
 }
