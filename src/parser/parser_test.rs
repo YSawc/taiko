@@ -31,4 +31,13 @@ mod test {
         let expected = Value::FixNum(7);
         eval_script(program, expected);
     }
+
+    #[test]
+    fn if3() {
+        let program = "if 5*9==16 +4
+        7 elsif 4==4+9 then 8 elsif 3==1+2 then 10
+        else 12 end";
+        let expected = Value::FixNum(10);
+        eval_script(program, expected);
+    }
 }

@@ -3,10 +3,10 @@ use taiko::lexer::lexer::*;
 use taiko::parser::parser::*;
 
 fn main() {
-    // let prog = "\na  = 0;\nbb=3;\n# comment line\n c = 3;# comment_line";
-    let prog = "if 5*4 == 16 +4
-    7;
-    end";
+    let prog = "if 5*9==16 +4
+    7 elsif 4==4+9 then 8 elsif 3==1+2 then 10
+    else 12 end";
+
     println!("{}", prog);
 
     let lexer = Lexer::new(prog);

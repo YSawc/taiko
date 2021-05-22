@@ -14,6 +14,7 @@ impl std::fmt::Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
             NodeKind::BinOp(op, lhs, rhs) => write!(f, "[{:?} ( {}, {}  )]", op, lhs, rhs),
+            NodeKind::CompStmt(nodes) => write!(f, "[{:?}]", nodes),
             _ => write!(f, "[{:?}]", self.kind),
         }
     }
@@ -24,6 +25,13 @@ impl Node {
         Node {
             kind: NodeKind::Number(num),
             loc,
+        }
+    }
+
+    fn new_comp_stmt() -> Self {
+        Node {
+            kind: NodeKind::CompStmt(vec![]),
+            loc: Loc(0, 0),
         }
     }
 }
@@ -37,7 +45,7 @@ pub enum NodeKind {
     Assign(Box<Node>, Box<Node>),
     BinOp(BinOp, Box<Node>, Box<Node>),
     CompStmt(Vec<Node>),
-    If(Box<Node>, Box<Node>),
+    If(Box<Node>, Box<Node>, Box<Node>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -89,7 +97,7 @@ impl Parser {
         }
     }
 
-    fn peek(&mut self) -> &Token {
+    fn peek(&self) -> &Token {
         let mut c = self.cursor;
         loop {
             let tok = &self.tokens[c];
@@ -114,6 +122,20 @@ impl Parser {
         }
 
         token
+    }
+
+    fn get_if_reserved(&mut self, expect: Reserved) -> bool {
+        match &self.peek().kind {
+            TokenKind::Reserved(reserved) => {
+                if *reserved == expect {
+                    self.get();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
     }
 
     #[allow(unused)]
@@ -192,6 +214,27 @@ impl Parser {
 
         Ok(Node {
             kind: NodeKind::CompStmt(nodes),
+            loc,
+        })
+    }
+
+    pub fn parse_if_then(&mut self) -> Result<Node, ParseError> {
+        let loc = self.peek().loc;
+        let cond = self.parse_expr()?;
+        println!("if cond {}", cond);
+        self.parse_then()?;
+        let then_ = self.parse_comp_stmt()?;
+        println!("if then {}", then_);
+        let mut else_ = Node::new_comp_stmt();
+        println!("if else_ {}", else_);
+        if self.get_if_reserved(Reserved::Elsif) {
+            else_ = self.parse_if_then()?;
+        } else if self.get_if_reserved(Reserved::Else) {
+            else_ = self.parse_comp_stmt()?;
+        }
+        let loc = loc.merge(then_.loc);
+        Ok(Node {
+            kind: NodeKind::If(Box::new(cond), Box::new(then_), Box::new(else_)),
             loc,
         })
     }
@@ -278,17 +321,9 @@ impl Parser {
                 }
             }
             TokenKind::Reserved(Reserved::If) => {
-                let cond = self.parse_expr()?;
-                println!("if cond {}", cond);
-                self.parse_then()?;
-                let then = self.parse_comp_stmt()?;
-                println!("if then {}", then);
+                let node = self.parse_if_then();
                 self.expect_reserved(Reserved::End)?;
-                let loc = tok.loc.merge(then.loc);
-                Ok(Node {
-                    kind: NodeKind::If(Box::new(cond), Box::new(then)),
-                    loc,
-                })
+                node
             }
             TokenKind::EOF => Err(ParseError::EOF),
             _ => Err(self.error_unexpected(&tok)),
