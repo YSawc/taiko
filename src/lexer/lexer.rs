@@ -117,9 +117,17 @@ impl Lexer {
 
     fn read_space(&mut self) -> Token {
         self.token_start_pos = self.absolute_column_pos;
-        while self.peek().unwrap() == ' ' {
-            self.absolute_column_pos += 1;
-            self.relative_column_pos += 1;
+        loop {
+            match self.peek() {
+                Ok(c) => match c {
+                    ' ' => {
+                        self.absolute_column_pos += 1;
+                        self.relative_column_pos += 1;
+                    }
+                    _ => break,
+                },
+                Err(_) => break,
+            }
         }
         Token::new_space(Loc(self.token_start_pos, self.absolute_column_pos - 1))
     }

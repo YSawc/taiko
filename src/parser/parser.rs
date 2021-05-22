@@ -4,16 +4,23 @@ use crate::token::token::*;
 use crate::util::annot::*;
 use crate::util::util::*;
 use crate::value::value::*;
+use rustc_hash::FxHashMap;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parser {
     tokens: Vec<Token>,
     pub source_info: SourceInfo,
     cursor: usize,
+    pub ident_table: IdentifierTable,
+    ident_id: usize,
 }
 
+pub type ParseError = Annot<ParseErrorKind>;
+
+pub type IdentifierTable = FxHashMap<String, usize>;
+
 #[derive(Debug, Clone, PartialEq)]
-pub enum ParseError {
+pub enum ParseErrorKind {
     UnexpectedToken,
     EOF,
 }
@@ -24,6 +31,8 @@ impl Parser {
             tokens: result.tokens,
             cursor: 0,
             source_info: result.source_info,
+            ident_table: FxHashMap::default(),
+            ident_id: 0,
         }
     }
 
@@ -111,13 +120,27 @@ impl Parser {
         }
     }
 
-    fn error_unexpected(&self, tok: &Token) -> ParseError {
-        self.source_info.show_loc(&tok.loc);
-        ParseError::UnexpectedToken
+    fn error_unexpected<T>(&self, annot: &Annot<T>) -> ParseError {
+        self.source_info.show_loc(&annot.loc);
+        ParseError::new(ParseErrorKind::UnexpectedToken, annot.loc)
     }
 
     fn peek_no_skip_line_term(&self) -> &Token {
         &self.tokens[self.cursor]
+    }
+
+    fn get_if_punct(&mut self, expect: Punct) -> bool {
+        match &self.peek().kind {
+            TokenKind::Punct(punct) => {
+                if *punct == expect {
+                    self.get();
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
     }
 
     fn get_if_term(&mut self) -> bool {
@@ -134,8 +157,13 @@ impl Parser {
         &self.tokens[self.cursor]
     }
 
+    pub fn parse_program(&mut self) -> Result<Node, ParseError> {
+        self.parse_comp_stmt()
+    }
+
     pub fn parse_comp_stmt(&mut self) -> Result<Node, ParseError> {
         let mut nodes = vec![];
+        let loc = self.peek().loc;
         loop {
             let tok = self.peek();
             match tok.kind {
@@ -146,7 +174,9 @@ impl Parser {
                 },
                 _ => {}
             };
-            nodes.push(self.parse_expr()?);
+            let node = self.parse_expr()?;
+            loc.merge(node.loc);
+            nodes.push(node);
             if !self.get_if_term() {
                 break;
             }
@@ -189,7 +219,21 @@ impl Parser {
     }
 
     pub fn parse_expr(&mut self) -> Result<Node, ParseError> {
-        self.parse_arg_comp()
+        self.parse_arg()
+    }
+
+    fn parse_arg(&mut self) -> Result<Node, ParseError> {
+        self.parse_arg_assign()
+    }
+
+    fn parse_arg_assign(&mut self) -> Result<Node, ParseError> {
+        let lhs = self.parse_arg_comp()?;
+        if self.get_if_punct(Punct::Assign) {
+            let rhs = self.parse_arg()?;
+            Ok(Node::new_assign(lhs, rhs))
+        } else {
+            Ok(lhs)
+        }
     }
 
     pub fn parse_arg_comp(&mut self) -> Result<Node, ParseError> {
@@ -252,13 +296,38 @@ impl Parser {
                     loc,
                 ))
             }
+            TokenKind::Punct(Punct::Div) => {
+                self.get();
+                let rhs = self.parse_arg_mul()?;
+                let loc = lhs.loc.merge(rhs.loc);
+                Ok(Node::new(
+                    NodeKind::BinOp(BinOp::Div, Box::new(lhs), Box::new(rhs)),
+                    loc,
+                ))
+            }
             _ => Ok(lhs),
+        }
+    }
+
+    fn get_local_var_id(&mut self, name: &str) -> usize {
+        match self.ident_table.get(name) {
+            Some(id) => *id,
+            None => {
+                let id = self.ident_id;
+                self.ident_table.insert(name.to_string(), id);
+                self.ident_id += 1;
+                id
+            }
         }
     }
 
     fn parse_primary(&mut self) -> Result<Node, ParseError> {
         let tok = self.get().clone();
         match &tok.kind {
+            TokenKind::Ident(name) => {
+                let id = self.get_local_var_id(name);
+                Ok(Node::new_local_var(id, tok.loc))
+            }
             TokenKind::NumLit(num) => Ok(Node::new_number(*num, tok.loc)),
             TokenKind::Punct(Punct::LParen) => {
                 let node = self.parse_expr()?;
@@ -274,7 +343,7 @@ impl Parser {
                 self.expect_reserved(Reserved::End)?;
                 node
             }
-            TokenKind::EOF => Err(ParseError::EOF),
+            TokenKind::EOF => Err(ParseError::new(ParseErrorKind::EOF, tok.loc)),
             _ => Err(self.error_unexpected(&tok)),
         }
     }
@@ -314,6 +383,15 @@ impl Parser {
                     (_, _) => unimplemented!(),
                 }
             }
+            NodeKind::Div(lhs, rhs) => {
+                let lhs = Parser::eval_node(lhs);
+                let rhs = Parser::eval_node(rhs);
+                match (lhs, rhs) {
+                    (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::FixNum(lhs / rhs),
+                    (_, _) => unimplemented!(),
+                }
+            }
+
             _ => unimplemented!(),
         }
     }

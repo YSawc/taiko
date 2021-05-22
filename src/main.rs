@@ -3,9 +3,10 @@ use taiko::lexer::lexer::*;
 use taiko::parser::parser::*;
 
 fn main() {
-    let prog = "if 5*9==16 +4
-    7 elsif 4==4+9 then 8 elsif 3==1+2 then 10
-    else 12 end";
+    let prog = "
+    a = 7;
+    b = 3; c = 2;
+    a * b - 2";
 
     println!("{}", prog);
 
@@ -17,10 +18,11 @@ fn main() {
                 println!("{}", token);
             }
             let mut parser = Parser::new(lexer_result);
-            match parser.parse_comp_stmt() {
+            match parser.parse_program() {
                 Ok(node) => {
                     parser.source_info.show_loc(&node.loc);
-                    println!("{:?}", eval_node(&node));
+                    let mut evaluator = Evaluator::new(parser.source_info, parser.ident_table);
+                    println!("{:?}", evaluator.eval_node(&node));
                 }
                 Err(err) => {
                     println!("{:?}", err);

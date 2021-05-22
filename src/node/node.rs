@@ -18,11 +18,7 @@ impl std::fmt::Display for Node {
 
 impl Node {
     pub fn new(kind: NodeKind, loc: Loc) -> Self {
-        Node {
-            kind,
-            loc
-        }
-
+        Node { kind, loc }
     }
 
     pub fn new_number(num: i64, loc: Loc) -> Self {
@@ -43,6 +39,16 @@ impl Node {
         let kind = NodeKind::BinOp(op, Box::new(lhs), Box::new(rhs));
         Node::new(kind, loc)
     }
+
+    pub fn new_local_var(id: usize, loc: Loc) -> Self {
+        Node::new(NodeKind::LocalVar(id), loc)
+    }
+
+    pub fn new_assign(lhs: Node, rhs: Node) -> Self {
+        let loc_merge = lhs.loc.merge(rhs.loc);
+        let loc = Loc::new(loc_merge.0, loc_merge.1);
+        Node::new(NodeKind::Assign(Box::new(lhs), Box::new(rhs)), loc)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -51,10 +57,12 @@ pub enum NodeKind {
     Add(Box<Node>, Box<Node>),
     Sub(Box<Node>, Box<Node>),
     Mul(Box<Node>, Box<Node>),
+    Div(Box<Node>, Box<Node>),
     Assign(Box<Node>, Box<Node>),
     BinOp(BinOp, Box<Node>, Box<Node>),
     CompStmt(Vec<Node>),
     If(Box<Node>, Box<Node>, Box<Node>),
+    LocalVar(usize),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -62,5 +70,6 @@ pub enum BinOp {
     Add,
     Sub,
     Mul,
+    Div,
     Eq,
 }
