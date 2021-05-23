@@ -65,6 +65,7 @@ pub enum Punct {
     RParen,
     Semi,
     Colon,
+    Comma,
     Equal,
     Assign,
     Comment,

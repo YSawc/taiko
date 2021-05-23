@@ -12,17 +12,41 @@ pub struct Parser {
     pub source_info: SourceInfo,
     cursor: usize,
     pub ident_table: IdentifierTable,
-    ident_id: usize,
 }
 
 pub type ParseError = Annot<ParseErrorKind>;
-
-pub type IdentifierTable = FxHashMap<String, usize>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParseErrorKind {
     UnexpectedToken,
     EOF,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct IdentifierTable {
+    table: FxHashMap<String, usize>,
+    ident_id: usize,
+}
+
+impl IdentifierTable {
+    pub fn new() -> Self {
+        IdentifierTable {
+            table: FxHashMap::default(),
+            ident_id: 0,
+        }
+    }
+
+    pub fn get_ident_id(&mut self, name: &String) -> usize {
+        match self.table.get(name) {
+            Some(id) => *id,
+            None => {
+                let id = self.ident_id;
+                self.table.insert(name.to_string(), id);
+                self.ident_id += 1;
+                id
+            }
+        }
+    }
 }
 
 impl Parser {
@@ -31,8 +55,7 @@ impl Parser {
             tokens: result.tokens,
             cursor: 0,
             source_info: result.source_info,
-            ident_table: FxHashMap::default(),
-            ident_id: 0,
+            ident_table: IdentifierTable::new(),
         }
     }
 
@@ -40,6 +63,14 @@ impl Parser {
         if self.tokens[self.cursor].kind == TokenKind::Space {
             self.cursor += 1;
         }
+    }
+
+    fn is_line_term(&self) -> bool {
+        self.peek_no_skip_line_term().is_line_term()
+    }
+
+    fn loc(&self) -> Loc {
+        self.tokens[self.cursor].loc()
     }
 
     pub fn get(&mut self) -> &Token {
@@ -55,12 +86,12 @@ impl Parser {
         }
     }
 
-    fn peek(&self) -> &Token {
+    fn peek(&self) -> (&Token, Loc) {
         let mut c = self.cursor;
         loop {
             let tok = &self.tokens[c];
             if tok.is_eof() || (!tok.is_line_term() && !tok.is_space()) {
-                return tok;
+                return (tok, tok.loc);
             } else {
                 c += 1;
             }
@@ -83,7 +114,7 @@ impl Parser {
     }
 
     fn get_if_reserved(&mut self, expect: Reserved) -> bool {
-        match &self.peek().kind {
+        match &self.peek().0.kind {
             TokenKind::Reserved(reserved) => {
                 if *reserved == expect {
                     self.get();
@@ -102,27 +133,34 @@ impl Parser {
         if tok.is_term() {
             Ok(())
         } else {
-            Err(self.error_unexpected(&tok))
+            Err(self.error_unexpected(tok.loc()))
         }
     }
 
     fn expect_reserved(&mut self, expect: Reserved) -> Result<(), ParseError> {
         let tok = self.get().clone();
-        match tok.kind {
+        let loc = self.loc();
+        match &tok.kind {
             TokenKind::Reserved(reserved) => {
-                if reserved == expect {
+                if *reserved == expect {
                     Ok(())
                 } else {
-                    Err(self.error_unexpected(&tok))
+                    Err(self.error_unexpected(loc))
                 }
             }
-            _ => Err(self.error_unexpected(&tok)),
+            _ => Err(self.error_unexpected(loc)),
         }
     }
 
-    fn error_unexpected<T>(&self, annot: &Annot<T>) -> ParseError {
-        self.source_info.show_loc(&annot.loc);
-        ParseError::new(ParseErrorKind::UnexpectedToken, annot.loc)
+    fn error_unexpected(&self, loc: Loc) -> ParseError {
+        self.source_info.show_loc(&loc);
+        ParseError::new(ParseErrorKind::UnexpectedToken, loc)
+    }
+
+    #[allow(unused)]
+    fn error_eof(&self, loc: Loc) -> ParseError {
+        self.source_info.show_loc(&loc);
+        ParseError::new(ParseErrorKind::EOF, loc)
     }
 
     fn peek_no_skip_line_term(&self) -> &Token {
@@ -130,7 +168,7 @@ impl Parser {
     }
 
     fn get_if_punct(&mut self, expect: Punct) -> bool {
-        match &self.peek().kind {
+        match &self.peek().0.kind {
             TokenKind::Punct(punct) => {
                 if *punct == expect {
                     self.get();
@@ -163,9 +201,9 @@ impl Parser {
 
     pub fn parse_comp_stmt(&mut self) -> Result<Node, ParseError> {
         let mut nodes = vec![];
-        let loc = self.peek().loc;
+        let mut loc = self.loc();
         loop {
-            let tok = self.peek();
+            let (tok, _) = self.peek();
             match tok.kind {
                 TokenKind::EOF => break,
                 TokenKind::Reserved(reserved) => match reserved {
@@ -175,20 +213,14 @@ impl Parser {
                 _ => {}
             };
             let node = self.parse_expr()?;
-            loc.merge(node.loc);
             nodes.push(node);
             if !self.get_if_term() {
                 break;
             }
         }
-        let mut loc;
-        if nodes.is_empty() {
-            loc = Loc::new(0, 0);
-        } else {
-            loc = nodes[0].loc;
-            for node in &nodes {
-                loc = loc.merge(node.loc);
-            }
+        match nodes.last() {
+            Some(node) => loc = loc.merge(node.loc()),
+            None => {}
         }
 
         Ok(Node {
@@ -198,7 +230,6 @@ impl Parser {
     }
 
     pub fn parse_if_then(&mut self) -> Result<Node, ParseError> {
-        let loc = self.peek().loc;
         let cond = self.parse_expr()?;
         println!("if cond {}", cond);
         self.parse_then()?;
@@ -211,7 +242,7 @@ impl Parser {
         } else if self.get_if_reserved(Reserved::Else) {
             else_ = self.parse_comp_stmt()?;
         }
-        let loc = loc.merge(then_.loc);
+        let loc = cond.loc().merge(else_.loc());
         Ok(Node::new(
             NodeKind::If(Box::new(cond), Box::new(then_), Box::new(else_)),
             loc,
@@ -228,6 +259,9 @@ impl Parser {
 
     fn parse_arg_assign(&mut self) -> Result<Node, ParseError> {
         let lhs = self.parse_arg_comp()?;
+        if self.is_line_term() {
+            return Ok(lhs);
+        }
         if self.get_if_punct(Punct::Assign) {
             let rhs = self.parse_arg()?;
             Ok(Node::new_assign(lhs, rhs))
@@ -236,25 +270,24 @@ impl Parser {
         }
     }
 
-    pub fn parse_arg_comp(&mut self) -> Result<Node, ParseError> {
+    fn parse_arg_comp(&mut self) -> Result<Node, ParseError> {
         let lhs = self.parse_arg_add()?;
-        let tok = self.peek().clone();
-        match &tok.kind {
-            TokenKind::Punct(Punct::Equal) => {
-                self.get();
-                let rhs = self.parse_arg_comp()?;
-                let loc = lhs.loc.merge(rhs.loc);
-                Ok(Node::new(
-                    NodeKind::BinOp(BinOp::Eq, Box::new(lhs), Box::new(rhs)),
-                    loc,
-                ))
-            }
-            _ => Ok(lhs),
+        if self.is_line_term() {
+            return Ok(lhs);
+        }
+        if self.get_if_punct(Punct::Equal) {
+            let rhs = self.parse_arg_comp()?;
+            Ok(Node::new_binop(BinOp::Eq, lhs, rhs))
+        } else {
+            Ok(lhs)
         }
     }
 
     fn parse_arg_add(&mut self) -> Result<Node, ParseError> {
         let lhs = self.parse_arg_mul()?;
+        if self.is_line_term() {
+            return Ok(lhs);
+        }
         let tok = self.peek_non_space().clone();
         match &tok.kind {
             TokenKind::Punct(ref punct) => match punct {
@@ -282,8 +315,11 @@ impl Parser {
         }
     }
 
-    pub fn parse_arg_mul(&mut self) -> Result<Node, ParseError> {
-        let lhs = self.parse_primary()?;
+    fn parse_arg_mul(&mut self) -> Result<Node, ParseError> {
+        let lhs = self.parse_unary_minus()?;
+        if self.is_line_term() {
+            return Ok(lhs);
+        }
         self.skip_space();
         let tok = self.peek_non_space().clone();
         match &tok.kind {
@@ -309,42 +345,66 @@ impl Parser {
         }
     }
 
-    fn get_local_var_id(&mut self, name: &str) -> usize {
-        match self.ident_table.get(name) {
-            Some(id) => *id,
-            None => {
-                let id = self.ident_id;
-                self.ident_table.insert(name.to_string(), id);
-                self.ident_id += 1;
-                id
-            }
+    fn parse_unary_minus(&mut self) -> Result<Node, ParseError> {
+        let loc = self.loc();
+        if self.get_if_punct(Punct::Minus) {
+            let lhs = self.parse_primary()?;
+            let loc = loc.merge(lhs.loc());
+            let lhs = Node::new_binop(BinOp::Mul, lhs, Node::new_number(-1, loc));
+            Ok(lhs)
+        } else {
+            let lhs = self.parse_primary()?;
+            Ok(lhs)
         }
     }
 
     fn parse_primary(&mut self) -> Result<Node, ParseError> {
         let tok = self.get().clone();
+        let loc = tok.loc();
         match &tok.kind {
             TokenKind::Ident(name) => {
-                let id = self.get_local_var_id(name);
-                Ok(Node::new_local_var(id, tok.loc))
+                let id = self.ident_table.get_ident_id(name);
+                if !self.get_if_punct(Punct::LParen) {
+                    return Ok(Node::new_local_var(id, loc));
+                }
+                let mut args = vec![];
+                if self.get_if_punct(Punct::RParen) {
+                    return Ok(Node::new_send(id, args, loc));
+                }
+                loop {
+                    args.push(self.parse_arg()?);
+                    if !self.get_if_punct(Punct::Comma) {
+                        break;
+                    }
+                }
+                let end_loc = self.loc();
+                if self.get_if_punct(Punct::RParen) {
+                    Ok(Node::new_send(id, args, loc.merge(end_loc)))
+                } else {
+                    Err(self.error_unexpected(self.loc()))
+                }
             }
-            TokenKind::NumLit(num) => Ok(Node::new_number(*num, tok.loc)),
+            TokenKind::NumLit(num) => Ok(Node::new_number(*num, loc)),
             TokenKind::Punct(Punct::LParen) => {
-                let node = self.parse_expr()?;
+                let node = self.parse_comp_stmt()?;
                 let tok = self.get().clone();
                 if tok.kind == TokenKind::Punct(Punct::RParen) {
                     Ok(node)
                 } else {
-                    Err(self.error_unexpected(&tok))
+                    Err(self.error_unexpected(self.loc()))
                 }
             }
             TokenKind::Reserved(Reserved::If) => {
-                let node = self.parse_if_then();
+                let node = self.parse_if_then()?;
                 self.expect_reserved(Reserved::End)?;
-                node
+                Ok(node)
             }
-            TokenKind::EOF => Err(ParseError::new(ParseErrorKind::EOF, tok.loc)),
-            _ => Err(self.error_unexpected(&tok)),
+            TokenKind::Reserved(Reserved::Def) => {
+                let node = self.parse_def()?;
+                Ok(node)
+            }
+            TokenKind::EOF => Err(ParseError::new(ParseErrorKind::EOF, loc)),
+            _ => Err(self.error_unexpected(loc)),
         }
     }
 
@@ -354,6 +414,50 @@ impl Parser {
         }
         self.expect_reserved(Reserved::Then)?;
         Ok(())
+    }
+
+    fn parse_def(&mut self) -> Result<Node, ParseError> {
+        let loc = self.loc();
+        let name = match &self.get().kind {
+            TokenKind::Ident(s) => s.clone(),
+            _ => return Err(self.error_unexpected(loc)),
+        };
+        let id = self.ident_table.get_ident_id(&name);
+
+        let args = self.parse_params()?;
+        let body = self.parse_comp_stmt()?;
+        self.expect_reserved(Reserved::End)?;
+
+        Ok(Node::new_method_decl(id, args, body))
+    }
+
+    fn parse_params(&mut self) -> Result<Vec<Node>, ParseError> {
+        if !self.get_if_punct(Punct::LParen) {
+            return Err(self.error_unexpected(self.peek().1));
+        }
+        let mut args = vec![];
+        if self.get_if_punct(Punct::RParen) {
+            return Ok(args);
+        }
+        loop {
+            let (arg, loc) = match self.get().clone() {
+                Token {
+                    kind: TokenKind::Ident(s),
+                    loc,
+                } => (s.clone(), loc),
+                Token { loc, .. } => return Err(self.error_unexpected(loc)),
+            };
+            let id = self.ident_table.get_ident_id(&arg);
+            args.push(Node::new(NodeKind::Param(id), loc));
+            if !self.get_if_punct(Punct::Comma) {
+                break;
+            }
+        }
+        if self.get_if_punct(Punct::RParen) {
+            Ok(args)
+        } else {
+            Err(self.error_unexpected(self.peek().1))
+        }
     }
 
     pub fn eval_node(node: &Node) -> Value {

@@ -239,7 +239,8 @@ impl Lexer {
             "(" => Punct::LParen,
             ")" => Punct::RParen,
             ";" => Punct::Semi,
-            ":" => Punct::Colon
+            ":" => Punct::Colon,
+            "," => Punct::Comma
         }
 
         punct.insert("=".to_string(), {

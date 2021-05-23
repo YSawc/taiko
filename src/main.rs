@@ -4,9 +4,17 @@ use taiko::parser::parser::*;
 
 fn main() {
     let prog = "
-    a = 7;
-    b = 3; c = 2;
-    a * b - 2";
+    def fact(a)
+        puts(a)
+        if a == 1
+            1
+        else
+            a * fact(a-1)
+        end
+    end
+
+    fact(5)
+";
 
     println!("{}", prog);
 
@@ -20,9 +28,9 @@ fn main() {
             let mut parser = Parser::new(lexer_result);
             match parser.parse_program() {
                 Ok(node) => {
-                    parser.source_info.show_loc(&node.loc);
+                    println!("node: {}", node);
                     let mut evaluator = Evaluator::new(parser.source_info, parser.ident_table);
-                    println!("{:?}", evaluator.eval_node(&node));
+                    println!("result: {:?}", evaluator.eval_node(&node));
                 }
                 Err(err) => {
                     println!("{:?}", err);
