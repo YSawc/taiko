@@ -200,6 +200,7 @@ impl Lexer {
     }
 
     fn read_ascii_alphabetic(&mut self, ch: char) -> Result<Token, Error> {
+        let is_const = ch.is_ascii_uppercase();
         let mut tok = ch.to_string();
         loop {
             let ch: char;
@@ -217,7 +218,13 @@ impl Lexer {
         }
         match self.reserved.get(&tok) {
             Some(reserved) => Ok(self.new_reserved(*reserved)),
-            None => Ok(self.new_ident(tok)),
+            None => {
+                if is_const {
+                    Ok(self.new_const(tok))
+                } else {
+                    Ok(self.new_ident(tok))
+                }
+            }
         }
     }
 
@@ -240,7 +247,8 @@ impl Lexer {
             ")" => Punct::RParen,
             ";" => Punct::Semi,
             ":" => Punct::Colon,
-            "," => Punct::Comma
+            "," => Punct::Comma,
+            "'" => Punct::String
         }
 
         punct.insert("=".to_string(), {
@@ -260,6 +268,7 @@ impl Lexer {
     }
 
     fn read_comment(&mut self) -> Token {
+        self.token_start_pos = self.absolute_column_pos - 1;
         let line_end_pos = match self.goto_eol() {
             None => self.line_start_pos - self.last_coordinate().0 - 2,
             Some(Error::EOF) => self.absolute_column_pos - 1,
@@ -267,6 +276,24 @@ impl Lexer {
         };
 
         Token::new_comment(Loc(self.token_start_pos, line_end_pos))
+    }
+
+    fn read_string(&mut self) -> Result<Token, Error> {
+        loop {
+            match self.get() {
+                Ok(ch) => match ch {
+                    '\'' => break,
+                    _ => continue,
+                },
+                Err(Error::EOF) => return Err(Error::EOF),
+                Err(_) => unimplemented!(),
+            };
+        }
+
+        Ok(Token::new_string(Loc(
+            self.token_start_pos,
+            self.absolute_column_pos - 1,
+        )))
     }
 
     fn goto_eol(&mut self) -> Option<Error> {
@@ -307,8 +334,9 @@ impl Lexer {
                 self.read_number_literal(ch)?
             } else if ch.is_ascii_punctuation() {
                 if ch == '#' {
-                    self.token_start_pos = self.absolute_column_pos - 1;
                     self.read_comment()
+                } else if ch == '\'' {
+                    self.read_string()?
                 } else {
                     self.read_ascii_punct(ch)?
                 }
@@ -325,6 +353,10 @@ impl Lexer {
 impl Lexer {
     fn new_ident(&self, ident: String) -> Token {
         Annot::new(TokenKind::Ident(ident), self.cur_loc())
+    }
+
+    fn new_const(&self, ident: impl Into<String>) -> Token {
+        Annot::new(TokenKind::Const(ident.into()), self.cur_loc())
     }
 
     fn new_reserved(&self, ident: Reserved) -> Token {

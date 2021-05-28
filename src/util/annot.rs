@@ -23,7 +23,7 @@ impl Loc {
         Loc(min(self.0, loc.0), max(self.1, loc.1))
     }
 
-    pub fn new(start_pos: usize, end_pos: usize) -> Self {
-        Loc(start_pos, end_pos)
+    pub fn new(loc: Loc) -> Self {
+        loc
     }
 }

@@ -1,7 +1,9 @@
 use crate::util::annot::*;
+use crate::util::util::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeKind {
+    SelfValue,
     Number(i64),
     Add(Box<Node>, Box<Node>),
     Sub(Box<Node>, Box<Node>),
@@ -11,10 +13,12 @@ pub enum NodeKind {
     BinOp(BinOp, Box<Node>, Box<Node>),
     CompStmt(Vec<Node>),
     If(Box<Node>, Box<Node>, Box<Node>),
-    LocalVar(usize),
-    Param(usize),
-    FuncDecl(usize, NodeVec, Box<Node>),
-    Send(usize, NodeVec),
+    LocalVar(IdentId),
+    Const(IdentId),
+    Param(IdentId),
+    FuncDecl(IdentId, NodeVec, Box<Node>),
+    ClassDecl(IdentId, Box<Node>),
+    Send(IdentId, NodeVec),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -33,9 +37,9 @@ impl std::fmt::Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
             NodeKind::BinOp(op, lhs, rhs) => write!(f, "[{:?} ( {}, {}  )]", op, lhs, rhs),
-            NodeKind::LocalVar(id) => write!(f, "(LocalVar {})", id),
+            NodeKind::LocalVar(id) => write!(f, "(LocalVar {:?})", id),
             NodeKind::Send(id, nodes) => {
-                write!(f, "[ Send {}: ", id)?;
+                write!(f, "[ Send {:?}: ", id)?;
                 for node in nodes {
                     write!(f, "({})", node)?;
                 }
@@ -51,7 +55,7 @@ impl std::fmt::Display for Node {
                 Ok(())
             }
             NodeKind::FuncDecl(id, args, body) => {
-                write!(f, "[ FuncDecl {}: PARAM(", id)?;
+                write!(f, "[ FuncDecl {:?}: PARAM(", id)?;
                 for arg in args {
                     write!(f, "({}) ", arg)?;
                 }
@@ -87,22 +91,31 @@ impl Node {
         Node::new(kind, loc)
     }
 
-    pub fn new_local_var(id: usize, loc: Loc) -> Self {
+    pub fn new_local_var(id: IdentId, loc: Loc) -> Self {
         Node::new(NodeKind::LocalVar(id), loc)
     }
 
     pub fn new_assign(lhs: Node, rhs: Node) -> Self {
         let loc_merge = lhs.loc.merge(rhs.loc);
-        let loc = Loc::new(loc_merge.0, loc_merge.1);
+        let loc = Loc::new(loc_merge);
         Node::new(NodeKind::Assign(Box::new(lhs), Box::new(rhs)), loc)
     }
 
-    pub fn new_method_decl(id: usize, params: Vec<Node>, body: Node) -> Self {
-        let loc = Loc::new(body.loc().0, 1);
+    pub fn new_method_decl(id: IdentId, params: Vec<Node>, body: Node) -> Self {
+        let loc = Loc::new(body.loc());
         Node::new(NodeKind::FuncDecl(id, params, Box::new(body)), loc)
     }
 
-    pub fn new_send(id: usize, args: Vec<Node>, loc: Loc) -> Self {
+    pub fn new_class_decl(id: IdentId, body: Node) -> Self {
+        let loc = Loc::new(body.loc());
+        Node::new(NodeKind::ClassDecl(id, Box::new(body)), loc)
+    }
+
+    pub fn new_const(id: IdentId, loc: Loc) -> Self {
+        Node::new(NodeKind::Const(id), loc)
+    }
+
+    pub fn new_send(id: IdentId, args: Vec<Node>, loc: Loc) -> Self {
         Node::new(NodeKind::Send(id, args), loc)
     }
 }

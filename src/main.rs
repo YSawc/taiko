@@ -4,17 +4,21 @@ use taiko::parser::parser::*;
 
 fn main() {
     let prog = "
-    def fact(a)
-        puts(a)
-        if a == 1
-            1
-        else
-            a * fact(a-1)
+    def self1
+        puts(self)
+    end
+
+    self1()
+
+    class Foo
+        puts(self)
+        class Bar
+            puts(self)
         end
     end
 
-    fact(5)
-";
+    self1()
+    ";
 
     println!("{}", prog);
 

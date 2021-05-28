@@ -3,12 +3,14 @@ use crate::util::annot::*;
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     Ident(String),
+    Const(String),
     NumLit(i64),
     Reserved(Reserved),
     Punct(Punct),
     Space,
     Line,
     EOF,
+    String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -66,6 +68,7 @@ pub enum Punct {
     Semi,
     Colon,
     Comma,
+    String,
     Equal,
     Assign,
     Comment,
@@ -78,6 +81,10 @@ impl Token {
         Annot::new(TokenKind::Ident(ident), loc)
     }
 
+    pub fn new_const(ident: String, loc: Loc) -> Self {
+        Annot::new(TokenKind::Const(ident), loc)
+    }
+
     pub fn new_reserved(ident: Reserved, loc: Loc) -> Self {
         Annot::new(TokenKind::Reserved(ident), loc)
     }
@@ -88,6 +95,10 @@ impl Token {
 
     pub fn new_comment(loc: Loc) -> Self {
         Annot::new(TokenKind::Punct(Punct::Comment), loc)
+    }
+
+    pub fn new_string(loc: Loc) -> Self {
+        Annot::new(TokenKind::Punct(Punct::String), loc)
     }
 
     pub fn new_punct(punct: Punct, loc: Loc) -> Self {
@@ -114,6 +125,10 @@ impl Token {
 
     pub fn is_line_term(&self) -> bool {
         self.kind == TokenKind::Line
+    }
+
+    pub fn is_comment(&self) -> bool {
+        self.kind == TokenKind::Punct(Punct::Comment)
     }
 
     pub fn is_eof(&self) -> bool {

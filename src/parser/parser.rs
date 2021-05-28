@@ -4,7 +4,6 @@ use crate::token::token::*;
 use crate::util::annot::*;
 use crate::util::util::*;
 use crate::value::value::*;
-use rustc_hash::FxHashMap;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parser {
@@ -20,33 +19,6 @@ pub type ParseError = Annot<ParseErrorKind>;
 pub enum ParseErrorKind {
     UnexpectedToken,
     EOF,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct IdentifierTable {
-    table: FxHashMap<String, usize>,
-    ident_id: usize,
-}
-
-impl IdentifierTable {
-    pub fn new() -> Self {
-        IdentifierTable {
-            table: FxHashMap::default(),
-            ident_id: 0,
-        }
-    }
-
-    pub fn get_ident_id(&mut self, name: &String) -> usize {
-        match self.table.get(name) {
-            Some(id) => *id,
-            None => {
-                let id = self.ident_id;
-                self.table.insert(name.to_string(), id);
-                self.ident_id += 1;
-                id
-            }
-        }
-    }
 }
 
 impl Parser {
@@ -90,7 +62,7 @@ impl Parser {
         let mut c = self.cursor;
         loop {
             let tok = &self.tokens[c];
-            if tok.is_eof() || (!tok.is_line_term() && !tok.is_space()) {
+            if tok.is_eof() || (!tok.is_line_term() && !tok.is_space() && !tok.is_comment()) {
                 return (tok, tok.loc);
             } else {
                 c += 1;
@@ -205,6 +177,7 @@ impl Parser {
         loop {
             let (tok, _) = self.peek();
             match tok.kind {
+                TokenKind::Punct(Punct::Comment) => continue,
                 TokenKind::EOF => break,
                 TokenKind::Reserved(reserved) => match reserved {
                     Reserved::Else | Reserved::Elsif | Reserved::End => break,
@@ -365,6 +338,9 @@ impl Parser {
             TokenKind::Ident(name) => {
                 let id = self.ident_table.get_ident_id(name);
                 if !self.get_if_punct(Punct::LParen) {
+                    if name == "self" {
+                        return Ok(Node::new(NodeKind::SelfValue, loc));
+                    }
                     return Ok(Node::new_local_var(id, loc));
                 }
                 let mut args = vec![];
@@ -383,6 +359,10 @@ impl Parser {
                 } else {
                     Err(self.error_unexpected(self.loc()))
                 }
+            }
+            TokenKind::Const(name) => {
+                let id = self.ident_table.get_ident_id(name);
+                Ok(Node::new_const(id, loc))
             }
             TokenKind::NumLit(num) => Ok(Node::new_number(*num, loc)),
             TokenKind::Punct(Punct::LParen) => {
@@ -403,9 +383,27 @@ impl Parser {
                 let node = self.parse_def()?;
                 Ok(node)
             }
+            TokenKind::Reserved(Reserved::Class) => {
+                let node = self.parse_class()?;
+                Ok(node)
+            }
             TokenKind::EOF => Err(ParseError::new(ParseErrorKind::EOF, loc)),
             _ => Err(self.error_unexpected(loc)),
         }
+    }
+
+    fn parse_class(&mut self) -> Result<Node, ParseError> {
+        let loc = self.loc();
+        let name = match &self.get().kind {
+            TokenKind::Const(s) => s.clone(),
+            _ => return Err(self.error_unexpected(loc)),
+        };
+        let id = self.ident_table.get_ident_id(&name);
+
+        let body = self.parse_comp_stmt()?;
+        self.expect_reserved(Reserved::End)?;
+
+        Ok(Node::new_class_decl(id, body))
     }
 
     pub fn parse_then(&mut self) -> Result<(), ParseError> {
@@ -433,7 +431,7 @@ impl Parser {
 
     fn parse_params(&mut self) -> Result<Vec<Node>, ParseError> {
         if !self.get_if_punct(Punct::LParen) {
-            return Err(self.error_unexpected(self.peek().1));
+            return Ok(vec![]);
         }
         let mut args = vec![];
         if self.get_if_punct(Punct::RParen) {
@@ -495,7 +493,6 @@ impl Parser {
                     (_, _) => unimplemented!(),
                 }
             }
-
             _ => unimplemented!(),
         }
     }

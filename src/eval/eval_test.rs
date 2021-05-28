@@ -34,4 +34,26 @@ mod test {
         let expected = Value::FixNum(120);
         eval_script(program, expected);
     }
+
+    #[test]
+    fn func2() {
+        let program = "
+        def self1
+        puts(self)
+        end
+
+        self1()
+
+        class Foo
+            puts(self)
+            class Bar
+                puts(self)
+            end
+        end
+
+        self1()
+        ";
+        let expected = Value::Nil;
+        eval_script(program, expected);
+    }
 }
