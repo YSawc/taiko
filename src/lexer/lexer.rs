@@ -247,8 +247,7 @@ impl Lexer {
             ")" => Punct::RParen,
             ";" => Punct::Semi,
             ":" => Punct::Colon,
-            "," => Punct::Comma,
-            "'" => Punct::String
+            "," => Punct::Comma
         }
 
         punct.insert("=".to_string(), {
@@ -278,22 +277,48 @@ impl Lexer {
         Token::new_comment(Loc(self.token_start_pos, line_end_pos))
     }
 
-    fn read_string(&mut self) -> Result<Token, Error> {
+    fn read_string_literal_single(&mut self) -> Result<Token, Error> {
+        let mut s = "".to_string();
         loop {
-            match self.get() {
-                Ok(ch) => match ch {
-                    '\'' => break,
-                    _ => continue,
-                },
-                Err(Error::EOF) => return Err(Error::EOF),
-                Err(_) => unimplemented!(),
+            let c = self.get()?;
+            match c {
+                '\'' => break,
+                c => {
+                    s.push(c);
+                    continue;
+                }
             };
         }
 
-        Ok(Token::new_string(Loc(
-            self.token_start_pos,
-            self.absolute_column_pos - 1,
-        )))
+        Ok(self.new_stringlit(s))
+    }
+
+    fn read_string_literal_double(&mut self) -> Result<Token, Error> {
+        let mut s = "".to_string();
+        loop {
+            match self.get()? {
+                '"' => break,
+                '\\' => s.push(self.read_escaped_char()?),
+                c => s.push(c),
+            }
+        }
+        Ok(self.new_stringlit(s))
+    }
+
+    fn read_escaped_char(&mut self) -> Result<char, Error> {
+        let c = self.get()?;
+        let ch = match c {
+            '\'' | '"' | '?' | '\\' => c,
+            'a' => '\x07',
+            'b' => '\x08',
+            'f' => '\x0c',
+            'n' => '\x0a',
+            'r' => '\x0d',
+            't' => '\x09',
+            'v' => '\x0b',
+            _ => c,
+        };
+        Ok(ch)
     }
 
     fn goto_eol(&mut self) -> Option<Error> {
@@ -336,7 +361,9 @@ impl Lexer {
                 if ch == '#' {
                     self.read_comment()
                 } else if ch == '\'' {
-                    self.read_string()?
+                    self.read_string_literal_single()?
+                } else if ch == '"' {
+                    self.read_string_literal_double()?
                 } else {
                     self.read_ascii_punct(ch)?
                 }
@@ -365,6 +392,10 @@ impl Lexer {
 
     fn new_numlit(&self, num: i64) -> Token {
         Annot::new(TokenKind::NumLit(num), self.cur_loc())
+    }
+
+    fn new_stringlit(&self, s: String) -> Token {
+        Annot::new(TokenKind::StringLit(s), self.cur_loc())
     }
 
     fn new_punct(&self, punct: Punct) -> Token {

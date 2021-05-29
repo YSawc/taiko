@@ -5,6 +5,7 @@ use crate::util::util::*;
 pub enum NodeKind {
     SelfValue,
     Number(i64),
+    String(String),
     Add(Box<Node>, Box<Node>),
     Sub(Box<Node>, Box<Node>),
     Mul(Box<Node>, Box<Node>),
@@ -72,10 +73,11 @@ impl std::fmt::Display for Node {
 
 impl Node {
     pub fn new_number(num: i64, loc: Loc) -> Self {
-        Node {
-            kind: NodeKind::Number(num),
-            loc,
-        }
+        Node::new(NodeKind::Number(num), loc)
+    }
+
+    pub fn new_string(s: String, loc: Loc) -> Self {
+        Node::new(NodeKind::String(s), loc)
     }
 
     pub fn new_comp_stmt() -> Self {

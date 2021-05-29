@@ -36,6 +36,12 @@ pub struct GlobalClassTable {
     class_id: usize,
 }
 
+impl Default for GlobalClassTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GlobalClassTable {
     pub fn new() -> Self {
         GlobalClassTable {

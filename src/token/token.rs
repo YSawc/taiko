@@ -5,6 +5,7 @@ pub enum TokenKind {
     Ident(String),
     Const(String),
     NumLit(i64),
+    StringLit(String),
     Reserved(Reserved),
     Punct(Punct),
     Space,
@@ -68,7 +69,6 @@ pub enum Punct {
     Semi,
     Colon,
     Comma,
-    String,
     Equal,
     Assign,
     Comment,
@@ -98,7 +98,7 @@ impl Token {
     }
 
     pub fn new_string(loc: Loc) -> Self {
-        Annot::new(TokenKind::Punct(Punct::String), loc)
+        Annot::new(TokenKind::String, loc)
     }
 
     pub fn new_punct(punct: Punct, loc: Loc) -> Self {

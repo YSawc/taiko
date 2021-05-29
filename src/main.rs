@@ -3,7 +3,7 @@ use taiko::lexer::lexer::*;
 use taiko::parser::parser::*;
 
 fn main() {
-    let prog = "
+    let prog = r#"
     def self1
         puts(self)
     end
@@ -17,8 +17,11 @@ fn main() {
         end
     end
 
+    puts('\"\a\b\f\n\r\t\v\"')
+    puts("\"\a\b\f\n\r\t\v\"")
+    puts("Hello world!")
     self1()
-    ";
+    "#;
 
     println!("{}", prog);
 

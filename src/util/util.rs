@@ -55,6 +55,12 @@ pub struct IdentifierTable {
     ident_id: usize,
 }
 
+impl Default for IdentifierTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IdentifierTable {
     pub fn new() -> Self {
         IdentifierTable {
@@ -64,13 +70,13 @@ impl IdentifierTable {
         }
     }
 
-    pub fn get_ident_id(&mut self, name: &String) -> IdentId {
+    pub fn get_ident_id(&mut self, name: &str) -> IdentId {
         match self.table.get(name) {
             Some(id) => IdentId(*id),
             None => {
                 let id = self.ident_id;
-                self.table.insert(name.clone(), id);
-                self.table_rev.insert(id, name.clone());
+                self.table.insert(name.to_string(), id);
+                self.table_rev.insert(id, name.to_string());
                 self.ident_id += 1;
                 IdentId(id)
             }

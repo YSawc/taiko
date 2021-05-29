@@ -111,6 +111,7 @@ impl Evaluator {
     pub fn eval_node(&mut self, node: &Node) -> Value {
         match &node.kind {
             NodeKind::Number(num) => Value::FixNum(*num),
+            NodeKind::String(s) => Value::String(s.to_string()),
             NodeKind::SelfValue => {
                 let classref = self
                     .class_stack

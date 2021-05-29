@@ -191,9 +191,9 @@ impl Parser {
                 break;
             }
         }
-        match nodes.last() {
-            Some(node) => loc = loc.merge(node.loc()),
-            None => {}
+
+        if let Some(node) = nodes.last() {
+            loc = loc.merge(node.loc())
         }
 
         Ok(Node {
@@ -365,6 +365,7 @@ impl Parser {
                 Ok(Node::new_const(id, loc))
             }
             TokenKind::NumLit(num) => Ok(Node::new_number(*num, loc)),
+            TokenKind::StringLit(s) => Ok(Node::new_string(s.to_string(), loc)),
             TokenKind::Punct(Punct::LParen) => {
                 let node = self.parse_comp_stmt()?;
                 let tok = self.get().clone();
@@ -387,7 +388,7 @@ impl Parser {
                 let node = self.parse_class()?;
                 Ok(node)
             }
-            TokenKind::EOF => Err(ParseError::new(ParseErrorKind::EOF, loc)),
+            TokenKind::EOF => Err(self.error_eof(loc)),
             _ => Err(self.error_unexpected(loc)),
         }
     }
