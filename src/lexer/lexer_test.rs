@@ -4,7 +4,8 @@ mod test {
     use crate::token::token::*;
     use crate::util::annot::*;
 
-    fn assert_lexer(lexer: Lexer, ans: Vec<Annot<TokenKind>>) {
+    fn assert_lexer(program: &str, ans: Vec<Annot<TokenKind>>) {
+        let lexer = Lexer::new(program);
         match lexer.tokenize() {
             Ok(lexer_result) => assert_eq!(lexer_result.tokens, ans),
             Err(err) => panic!("{:?}", err),
@@ -51,7 +52,7 @@ mod test {
             Token![Space, (10, 10)],
             Token![Ident("a".to_string()), (11, 11)],
             Token![Space, (12, 12)],
-            Token![Punct(Punct::Equal), (13, 14)],
+            Token![Punct(Punct::Eq), (13, 14)],
             Token![Space, (15, 15)],
             Token![NumLit(1000), (16, 20)],
             Token![Space, (21, 21)],
@@ -67,10 +68,7 @@ mod test {
             Token![Punct(Punct::Comment), (39, 52)],
             Token![EOF, (53, 53)],
         ];
-
-        println!("{}", program);
-        let lexer = Lexer::new(program);
-        assert_lexer(lexer, ans);
+        assert_lexer(program, ans);
     }
 
     #[test]
@@ -80,5 +78,89 @@ mod test {
         let lexer = Lexer::new(program);
         let lexer_result = lexer.tokenize().unwrap_err();
         assert_eq!(lexer_result, Error::ForbiddenTab);
+    }
+
+    #[test]
+    fn cmp1() {
+        let program = "5 > 0";
+        let ans = vec![
+            Token![NumLit(5), (0, 0)],
+            Token![Space, (1, 1)],
+            Token![Punct(Punct::GT), (2, 2)],
+            Token![Space, (3, 3)],
+            Token![NumLit(0), (4, 4)],
+            Token![EOF, (5, 5)],
+        ];
+        assert_lexer(program, ans);
+    }
+
+    #[test]
+    fn cmp2() {
+        let program = "5 >= 0";
+        let ans = vec![
+            Token![NumLit(5), (0, 0)],
+            Token![Space, (1, 1)],
+            Token![Punct(Punct::GE), (2, 3)],
+            Token![Space, (4, 4)],
+            Token![NumLit(0), (5, 5)],
+            Token![EOF, (6, 6)],
+        ];
+        assert_lexer(program, ans);
+    }
+
+    #[test]
+    fn cmp3() {
+        let program = "5 == 0";
+        let ans = vec![
+            Token![NumLit(5), (0, 0)],
+            Token![Space, (1, 1)],
+            Token![Punct(Punct::Eq), (2, 3)],
+            Token![Space, (4, 4)],
+            Token![NumLit(0), (5, 5)],
+            Token![EOF, (6, 6)],
+        ];
+        assert_lexer(program, ans);
+    }
+
+    #[test]
+    fn cmp4() {
+        let program = "5 != 0";
+        let ans = vec![
+            Token![NumLit(5), (0, 0)],
+            Token![Space, (1, 1)],
+            Token![Punct(Punct::NE), (2, 3)],
+            Token![Space, (4, 4)],
+            Token![NumLit(0), (5, 5)],
+            Token![EOF, (6, 6)],
+        ];
+        assert_lexer(program, ans);
+    }
+
+    #[test]
+    fn cmp5() {
+        let program = "5 < 0";
+        let ans = vec![
+            Token![NumLit(5), (0, 0)],
+            Token![Space, (1, 1)],
+            Token![Punct(Punct::LT), (2, 2)],
+            Token![Space, (3, 3)],
+            Token![NumLit(0), (4, 4)],
+            Token![EOF, (5, 5)],
+        ];
+        assert_lexer(program, ans);
+    }
+
+    #[test]
+    fn cmp6() {
+        let program = "5 <= 0";
+        let ans = vec![
+            Token![NumLit(5), (0, 0)],
+            Token![Space, (1, 1)],
+            Token![Punct(Punct::LE), (2, 3)],
+            Token![Space, (4, 4)],
+            Token![NumLit(0), (5, 5)],
+            Token![EOF, (6, 6)],
+        ];
+        assert_lexer(program, ans);
     }
 }

@@ -29,6 +29,13 @@ pub enum BinOp {
     Mul,
     Div,
     Eq,
+    Ne,
+    GT,
+    GE,
+    LT,
+    LE,
+    LAnd,
+    LOr,
 }
 
 pub type Node = Annot<NodeKind>;

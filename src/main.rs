@@ -3,25 +3,9 @@ use taiko::lexer::lexer::*;
 use taiko::parser::parser::*;
 
 fn main() {
-    let prog = r#"
-    def self1
-        puts(self)
-    end
-
-    self1()
-
-    class Foo
-        puts(self)
-        class Bar
-            puts(self)
-        end
-    end
-
-    puts('\"\a\b\f\n\r\t\v\"')
-    puts("\"\a\b\f\n\r\t\v\"")
-    puts("Hello world!")
-    self1()
-    "#;
+    let prog = "
+        5 >= 0
+        ";
 
     println!("{}", prog);
 

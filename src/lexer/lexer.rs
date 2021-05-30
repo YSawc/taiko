@@ -250,19 +250,69 @@ impl Lexer {
             "," => Punct::Comma
         }
 
-        punct.insert("=".to_string(), {
-            let ch = self.peek()?;
-            if ch == '=' {
-                self.get()?;
-                Punct::Equal
-            } else {
-                Punct::Assign
-            }
-        });
-
         match punct.contains_key(&ch.to_string()) {
             true => Ok(self.new_punct(*punct.get(&ch.to_string()).unwrap())),
-            false => Err(Error::NotMatchPunctuation),
+            false => match ch {
+                '=' => {
+                    let ch = self.peek()?;
+                    if ch == '=' {
+                        self.get()?;
+                        Ok(self.new_punct(Punct::Eq))
+                    } else {
+                        Ok(self.new_punct(Punct::Assign))
+                    }
+                }
+                '>' => {
+                    println!(
+                        "loc ch: {:?}",
+                        self.source_info.code[self.absolute_column_pos]
+                    );
+                    let ch = self.peek()?;
+                    if ch == '=' {
+                        self.get()?;
+                        Ok(self.new_punct(Punct::GE))
+                    } else {
+                        Ok(self.new_punct(Punct::GT))
+                    }
+                }
+                '<' => {
+                    let ch = self.peek()?;
+                    if ch == '=' {
+                        self.get()?;
+                        Ok(self.new_punct(Punct::LE))
+                    } else {
+                        Ok(self.new_punct(Punct::LT))
+                    }
+                }
+                '!' => {
+                    let ch1 = self.peek()?;
+                    if ch1 == '=' {
+                        self.get()?;
+                        Ok(self.new_punct(Punct::NE))
+                    } else {
+                        unimplemented!("{}", ch)
+                    }
+                }
+                '&' => {
+                    let ch = self.peek()?;
+                    if ch == '&' {
+                        self.get()?;
+                        Ok(self.new_punct(Punct::LAnd))
+                    } else {
+                        Ok(self.new_punct(Punct::And))
+                    }
+                }
+                '|' => {
+                    let ch = self.peek()?;
+                    if ch == '|' {
+                        self.get()?;
+                        Ok(self.new_punct(Punct::LOr))
+                    } else {
+                        Ok(self.new_punct(Punct::Or))
+                    }
+                }
+                _ => unimplemented!("{}", ch),
+            },
         }
     }
 

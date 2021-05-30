@@ -231,7 +231,7 @@ impl Parser {
     }
 
     fn parse_arg_assign(&mut self) -> Result<Node, ParseError> {
-        let lhs = self.parse_arg_comp()?;
+        let lhs = self.parse_arg_logical_or()?;
         if self.is_line_term() {
             return Ok(lhs);
         }
@@ -243,14 +243,65 @@ impl Parser {
         }
     }
 
+    fn parse_arg_logical_or(&mut self) -> Result<Node, ParseError> {
+        let lhs = self.parse_arg_logical_and()?;
+        if self.is_line_term() {
+            return Ok(lhs);
+        }
+        if self.get_if_punct(Punct::LAnd) {
+            let rhs = self.parse_arg_logical_or()?;
+            Ok(Node::new_binop(BinOp::LAnd, lhs, rhs))
+        } else {
+            Ok(lhs)
+        }
+    }
+
+    fn parse_arg_logical_and(&mut self) -> Result<Node, ParseError> {
+        let lhs = self.parse_arg_eq()?;
+        if self.is_line_term() {
+            return Ok(lhs);
+        }
+        if self.get_if_punct(Punct::LAnd) {
+            let rhs = self.parse_arg_logical_and()?;
+            Ok(Node::new_binop(BinOp::LAnd, lhs, rhs))
+        } else {
+            Ok(lhs)
+        }
+    }
+
+    fn parse_arg_eq(&mut self) -> Result<Node, ParseError> {
+        let lhs = self.parse_arg_comp()?;
+        if self.is_line_term() {
+            return Ok(lhs);
+        }
+        if self.get_if_punct(Punct::Eq) {
+            let rhs = self.parse_arg_eq()?;
+            Ok(Node::new_binop(BinOp::Eq, lhs, rhs))
+        } else if self.get_if_punct(Punct::NE) {
+            let rhs = self.parse_arg_eq()?;
+            Ok(Node::new_binop(BinOp::Ne, lhs, rhs))
+        } else {
+            Ok(lhs)
+        }
+    }
+
     fn parse_arg_comp(&mut self) -> Result<Node, ParseError> {
         let lhs = self.parse_arg_add()?;
         if self.is_line_term() {
             return Ok(lhs);
         }
-        if self.get_if_punct(Punct::Equal) {
+        if self.get_if_punct(Punct::GE) {
             let rhs = self.parse_arg_comp()?;
-            Ok(Node::new_binop(BinOp::Eq, lhs, rhs))
+            Ok(Node::new_binop(BinOp::GE, lhs, rhs))
+        } else if self.get_if_punct(Punct::GT) {
+            let rhs = self.parse_arg_comp()?;
+            Ok(Node::new_binop(BinOp::GT, lhs, rhs))
+        } else if self.get_if_punct(Punct::LE) {
+            let rhs = self.parse_arg_comp()?;
+            Ok(Node::new_binop(BinOp::LE, lhs, rhs))
+        } else if self.get_if_punct(Punct::LT) {
+            let rhs = self.parse_arg_comp()?;
+            Ok(Node::new_binop(BinOp::LT, lhs, rhs))
         } else {
             Ok(lhs)
         }
