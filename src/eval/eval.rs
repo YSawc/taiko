@@ -1,4 +1,5 @@
 use crate::class::class::*;
+use crate::instance::instance::*;
 use crate::node::node::*;
 use crate::util::util::*;
 use crate::value::value::*;
@@ -9,6 +10,7 @@ pub struct Evaluator {
     pub source_info: SourceInfo,
     pub ident_table: IdentifierTable,
     pub class_table: GlobalClassTable,
+    pub instance_table: GlobalInstanceTable,
     pub method_table: FuncTable,
     pub const_table: ValueTable,
     pub class_stack: Vec<ClassRef>,
@@ -16,7 +18,7 @@ pub struct Evaluator {
 }
 
 type ValueTable = FxHashMap<IdentId, Value>;
-type BuiltinFunc = fn(eval: &mut Evaluator, args: Vec<Value>) -> Value;
+type BuiltinFunc = fn(eval: &mut Evaluator, receiver: Value, args: Vec<Value>) -> Value;
 
 #[derive(Clone)]
 pub enum FuncInfo {
@@ -54,6 +56,7 @@ impl Evaluator {
             source_info,
             ident_table,
             class_table: GlobalClassTable::new(),
+            instance_table: GlobalInstanceTable::new(),
             method_table: FxHashMap::default(),
             const_table: FxHashMap::default(),
             class_stack: vec![],
@@ -75,8 +78,16 @@ impl Evaluator {
 
         reg_method_table! {
             "puts" => Evaluator::builtin_puts,
-            "to_i" => Evaluator::builtin_to_i
+            "to_i" => Evaluator::builtin_to_i,
+            "new" => Evaluator::builtin_new
         }
+
+        let id = eval.ident_table.get_ident_id(&"new".to_string());
+        let info = FuncInfo::BuiltinFunc {
+            name: "new".to_string(),
+            func: Evaluator::builtin_new,
+        };
+        eval.method_table.insert(id, info);
 
         let id = eval.ident_table.get_ident_id(&"main".to_string());
         let classref = eval.new_class_info(id, Node::new_comp_stmt());
@@ -85,18 +96,26 @@ impl Evaluator {
         eval
     }
 
-    pub fn builtin_puts(eval: &mut Evaluator, args: Vec<Value>) -> Value {
+    pub fn builtin_puts(eval: &mut Evaluator, _receiver: Value, args: Vec<Value>) -> Value {
         for arg in args {
             println!("{}", eval.val_to_s(&arg));
         }
         Value::Nil
     }
 
-    pub fn builtin_to_i(eval: &mut Evaluator, args: Vec<Value>) -> Value {
-        for arg in args {
-            println!("{}", eval.val_to_i(&arg));
+    pub fn builtin_new(eval: &mut Evaluator, receiver: Value, _args: Vec<Value>) -> Value {
+        match receiver {
+            Value::Class(class_ref) => {
+                let instance = eval.new_instance(class_ref);
+                Value::Instance(instance)
+            }
+            _ => unimplemented!(),
         }
-        Value::Nil
+    }
+
+    pub fn builtin_to_i(eval: &mut Evaluator, receiver: Value, _args: Vec<Value>) -> Value {
+        let i = eval.val_to_i(&receiver);
+        Value::FixNum(i)
     }
 
     pub fn lvar_table(&mut self) -> &mut ValueTable {
@@ -240,9 +259,14 @@ impl Evaluator {
                 self.class_stack.pop();
                 Value::Nil
             }
-            NodeKind::Send(id, args) => {
+            NodeKind::Send(receiver, method, args) => {
+                let id = match method.kind {
+                    NodeKind::LocalVar(id) => id,
+                    _ => unimplemented!("method must be identifer."),
+                };
+                let receiver = self.eval_node(receiver);
                 let args_val: Vec<Value> = args.iter().map(|x| self.eval_node(&x)).collect();
-                let info = match self.method_table.get(id) {
+                let info = match self.method_table.get(&id) {
                     Some(info) => info.clone(),
                     None => unimplemented!("undefined function."),
                 };
@@ -270,7 +294,7 @@ impl Evaluator {
                         self.exec_context.pop();
                         val
                     }
-                    FuncInfo::BuiltinFunc { func, .. } => func(self, args_val),
+                    FuncInfo::BuiltinFunc { func, .. } => func(self, receiver, args_val),
                 }
             }
             _ => unimplemented!("{:?}", node.kind),
@@ -337,6 +361,14 @@ impl Evaluator {
 }
 
 impl Evaluator {
+    pub fn new_instance(&mut self, class_id: ClassRef) -> InstanceRef {
+        let class_info = self.class_table.get(class_id);
+        let class_name = class_info.name.clone();
+        self.instance_table.new_instance(class_id, class_name)
+    }
+}
+
+impl Evaluator {
     pub fn val_to_bool(&self, val: &Value) -> bool {
         match val {
             Value::Nil => false,
@@ -359,6 +391,10 @@ impl Evaluator {
             Value::Class(class) => {
                 let class_info = self.class_table.get(*class);
                 format!("{}", class_info.name)
+            }
+            Value::Instance(instance) => {
+                let info = self.instance_table.get(*instance);
+                format!("#<{}:{:?}>", info.class_name, instance)
             }
         }
     }

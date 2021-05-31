@@ -1,8 +1,10 @@
 #[cfg(test)]
 mod test {
     use crate::eval::eval::*;
+    use crate::instance::instance::*;
     use crate::lexer::lexer::*;
     use crate::parser::parser::*;
+    use crate::value::value::Value::Instance;
     use crate::value::value::*;
 
     fn eval_script(script: impl Into<String>, expected: Value) {
@@ -54,6 +56,19 @@ mod test {
         self1()
         ";
         let expected = Value::Nil;
+        eval_script(program, expected);
+    }
+
+    #[test]
+    fn new_fn1() {
+        let program = "
+        class Foo
+        end
+        Foo.new
+        Foo.new
+        Foo.new
+        ";
+        let expected = Instance(InstanceRef(2));
         eval_script(program, expected);
     }
 }

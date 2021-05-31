@@ -4,7 +4,13 @@ use taiko::parser::parser::*;
 
 fn main() {
     let prog = "
-        5 >= 0
+        class Foo
+        end
+        puts(Foo)
+        puts(Foo.new)
+        puts(Foo.new)
+        puts(Foo.new)
+        puts(Foo)
         ";
 
     println!("{}", prog);

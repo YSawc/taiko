@@ -1,5 +1,6 @@
 pub mod class;
 pub mod eval;
+pub mod instance;
 pub mod lexer;
 pub mod node;
 pub mod parser;

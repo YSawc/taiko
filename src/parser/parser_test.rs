@@ -52,4 +52,13 @@ mod test {
         let expected = Value::FixNum(2);
         eval_script(program, expected);
     }
+
+    #[test]
+    fn to_i1() {
+        let program = "
+            '34'.to_i
+        ";
+        let expected = Value::FixNum(34);
+        eval_script(program, expected);
+    }
 }
