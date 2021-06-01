@@ -555,39 +555,30 @@ impl Parser {
     }
 
     pub fn eval_node(node: &Node) -> Value {
+        macro_rules! value_arithmetic {
+            ($lhs:expr, $rhs:expr, $tt:tt) => {
+                    let lhs = Parser::eval_node($lhs);
+                    let rhs = Parser::eval_node($rhs);
+                    match (lhs, rhs) {
+                        (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::FixNum(lhs $tt rhs),
+                        (_, _) => unimplemented!(),
+                    }
+            }
+        }
+
         match &node.kind {
             NodeKind::Number(num) => Value::FixNum(*num),
             NodeKind::Add(lhs, rhs) => {
-                let lhs = Parser::eval_node(lhs);
-                let rhs = Parser::eval_node(rhs);
-                match (lhs, rhs) {
-                    (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::FixNum(lhs + rhs),
-                    (_, _) => unimplemented!(),
-                }
+                value_arithmetic! { lhs, rhs, + }
             }
             NodeKind::Sub(lhs, rhs) => {
-                let lhs = Parser::eval_node(lhs);
-                let rhs = Parser::eval_node(rhs);
-                match (lhs, rhs) {
-                    (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::FixNum(lhs - rhs),
-                    (_, _) => unimplemented!(),
-                }
+                value_arithmetic! { lhs, rhs, - }
             }
             NodeKind::Mul(lhs, rhs) => {
-                let lhs = Parser::eval_node(lhs);
-                let rhs = Parser::eval_node(rhs);
-                match (lhs, rhs) {
-                    (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::FixNum(lhs * rhs),
-                    (_, _) => unimplemented!(),
-                }
+                value_arithmetic! { lhs, rhs, * }
             }
             NodeKind::Div(lhs, rhs) => {
-                let lhs = Parser::eval_node(lhs);
-                let rhs = Parser::eval_node(rhs);
-                match (lhs, rhs) {
-                    (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::FixNum(lhs / rhs),
-                    (_, _) => unimplemented!(),
-                }
+                value_arithmetic! { lhs, rhs, / }
             }
             _ => unimplemented!(),
         }

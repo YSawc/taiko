@@ -52,6 +52,15 @@ mod test {
     }
 
     #[test]
+    fn decimal_number2() {
+        let program = "
+            12.3 + 4 - 5.6 * 7.8 / 9;
+        ";
+        let expected = Value::FixDecimalNum(11.446666666666667);
+        eval_script(program, expected);
+    }
+
+    #[test]
     fn local_var1() {
         let program = "
             a = 6;

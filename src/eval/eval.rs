@@ -304,6 +304,15 @@ impl Evaluator {
     fn eval_add(&mut self, lhs: Value, rhs: Value) -> Value {
         match (lhs, rhs) {
             (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::FixNum(lhs + rhs),
+            (Value::FixDecimalNum(lhs), Value::FixNum(rhs)) => {
+                Value::FixDecimalNum(lhs + (rhs as f64))
+            }
+            (Value::FixNum(lhs), Value::FixDecimalNum(rhs)) => {
+                Value::FixDecimalNum((lhs as f64) + rhs)
+            }
+            (Value::FixDecimalNum(lhs), Value::FixDecimalNum(rhs)) => {
+                Value::FixDecimalNum(lhs + rhs)
+            }
             (_, _) => unimplemented!(),
         }
     }
@@ -311,6 +320,15 @@ impl Evaluator {
     fn eval_sub(&mut self, lhs: Value, rhs: Value) -> Value {
         match (lhs, rhs) {
             (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::FixNum(lhs - rhs),
+            (Value::FixDecimalNum(lhs), Value::FixNum(rhs)) => {
+                Value::FixDecimalNum(lhs - (rhs as f64))
+            }
+            (Value::FixNum(lhs), Value::FixDecimalNum(rhs)) => {
+                Value::FixDecimalNum((lhs as f64) - rhs)
+            }
+            (Value::FixDecimalNum(lhs), Value::FixDecimalNum(rhs)) => {
+                Value::FixDecimalNum(lhs - rhs)
+            }
             (_, _) => unimplemented!(),
         }
     }
@@ -318,6 +336,15 @@ impl Evaluator {
     fn eval_mul(&mut self, lhs: Value, rhs: Value) -> Value {
         match (lhs, rhs) {
             (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::FixNum(lhs * rhs),
+            (Value::FixDecimalNum(lhs), Value::FixNum(rhs)) => {
+                Value::FixDecimalNum(lhs * (rhs as f64))
+            }
+            (Value::FixNum(lhs), Value::FixDecimalNum(rhs)) => {
+                Value::FixDecimalNum((lhs as f64) * rhs)
+            }
+            (Value::FixDecimalNum(lhs), Value::FixDecimalNum(rhs)) => {
+                Value::FixDecimalNum(lhs * rhs)
+            }
             (_, _) => unimplemented!(),
         }
     }
@@ -325,6 +352,15 @@ impl Evaluator {
     fn eval_div(&mut self, lhs: Value, rhs: Value) -> Value {
         match (lhs, rhs) {
             (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::FixNum(lhs / rhs),
+            (Value::FixDecimalNum(lhs), Value::FixNum(rhs)) => {
+                Value::FixDecimalNum(lhs / (rhs as f64))
+            }
+            (Value::FixNum(lhs), Value::FixDecimalNum(rhs)) => {
+                Value::FixDecimalNum((lhs as f64) / rhs)
+            }
+            (Value::FixDecimalNum(lhs), Value::FixDecimalNum(rhs)) => {
+                Value::FixDecimalNum(lhs / rhs)
+            }
             (_, _) => unimplemented!(),
         }
     }
