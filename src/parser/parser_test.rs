@@ -43,6 +43,15 @@ mod test {
     }
 
     #[test]
+    fn decimal_number1() {
+        let program = "
+            123.4;
+        ";
+        let expected = Value::FixDecimalNum(123.4);
+        eval_script(program, expected);
+    }
+
+    #[test]
     fn local_var1() {
         let program = "
             a = 6;
@@ -59,6 +68,15 @@ mod test {
             '34'.to_i
         ";
         let expected = Value::FixNum(34);
+        eval_script(program, expected);
+    }
+
+    #[test]
+    fn to_s1() {
+        let program = "
+            34.to_s
+        ";
+        let expected = Value::String("34".to_string());
         eval_script(program, expected);
     }
 }

@@ -6,6 +6,7 @@ pub enum Value {
     Nil,
     Bool(bool),
     FixNum(i64),
+    FixDecimalNum(f64),
     String(String),
     Class(ClassRef),
     Instance(InstanceRef),

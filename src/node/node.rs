@@ -5,6 +5,7 @@ use crate::util::util::*;
 pub enum NodeKind {
     SelfValue,
     Number(i64),
+    DecimalNumber(f64),
     String(String),
     Add(Box<Node>, Box<Node>),
     Sub(Box<Node>, Box<Node>),
@@ -83,15 +84,16 @@ impl Node {
         Node::new(NodeKind::Number(num), loc)
     }
 
+    pub fn new_decimal_number(decimal_num: f64, loc: Loc) -> Self {
+        Node::new(NodeKind::DecimalNumber(decimal_num), loc)
+    }
+
     pub fn new_string(s: String, loc: Loc) -> Self {
         Node::new(NodeKind::String(s), loc)
     }
 
     pub fn new_comp_stmt() -> Self {
-        Node {
-            kind: NodeKind::CompStmt(vec![]),
-            loc: Loc(0, 0),
-        }
+        Node::new(NodeKind::CompStmt(vec![]), Loc(0, 0))
     }
 
     pub fn new_binop(op: BinOp, lhs: Node, rhs: Node) -> Self {
@@ -125,6 +127,18 @@ impl Node {
     }
 
     pub fn new_send(receiver: Node, method_name: Node, args: Vec<Node>, loc: Loc) -> Self {
-        Node::new(NodeKind::Send(Box::new(receiver), Box::new(method_name), args), loc)
+        Node::new(
+            NodeKind::Send(Box::new(receiver), Box::new(method_name), args),
+            loc,
+        )
+    }
+}
+
+impl Node {
+    pub fn pick_number(&self) -> i64 {
+        match self.kind {
+            NodeKind::Number(i) => i,
+            _ => unimplemented!(),
+        }
     }
 }

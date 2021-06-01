@@ -402,17 +402,25 @@ impl Parser {
             TokenKind::Punct(Punct::Dot) => {
                 self.get();
                 let tok = self.get().clone();
-                let method = match &tok.kind {
-                    TokenKind::Ident(s) => s,
+                match &tok.kind {
+                    TokenKind::Ident(s) => {
+                        let id = self.ident_table.get_ident_id(&s);
+                        Ok(Node::new_send(
+                            node,
+                            Node::new_local_var(id, tok.loc()),
+                            vec![],
+                            loc.merge(self.loc()),
+                        ))
+                    }
+                    TokenKind::NumLit(i) => {
+                        let receive_i = node.pick_number();
+                        Ok(Node::new_decimal_number(
+                            receive_i as f64 + ((*i as f64) * 0.1),
+                            loc.merge(self.loc()),
+                        ))
+                    }
                     _ => panic!("method name must be an identifer."),
-                };
-                let id = self.ident_table.get_ident_id(&method);
-                Ok(Node::new_send(
-                    node,
-                    Node::new_local_var(id, tok.loc()),
-                    vec![],
-                    loc.merge(self.loc()),
-                ))
+                }
             }
             _ => Ok(node),
         }

@@ -79,15 +79,9 @@ impl Evaluator {
         reg_method_table! {
             "puts" => Evaluator::builtin_puts,
             "to_i" => Evaluator::builtin_to_i,
+            "to_s" => Evaluator::builtin_to_s,
             "new" => Evaluator::builtin_new
         }
-
-        let id = eval.ident_table.get_ident_id(&"new".to_string());
-        let info = FuncInfo::BuiltinFunc {
-            name: "new".to_string(),
-            func: Evaluator::builtin_new,
-        };
-        eval.method_table.insert(id, info);
 
         let id = eval.ident_table.get_ident_id(&"main".to_string());
         let classref = eval.new_class_info(id, Node::new_comp_stmt());
@@ -118,6 +112,11 @@ impl Evaluator {
         Value::FixNum(i)
     }
 
+    pub fn builtin_to_s(eval: &mut Evaluator, receiver: Value, _args: Vec<Value>) -> Value {
+        let s = eval.val_to_s(&receiver);
+        Value::String(s)
+    }
+
     pub fn lvar_table(&mut self) -> &mut ValueTable {
         &mut self.exec_context.last_mut().unwrap().lvar_table
     }
@@ -130,6 +129,7 @@ impl Evaluator {
     pub fn eval_node(&mut self, node: &Node) -> Value {
         match &node.kind {
             NodeKind::Number(num) => Value::FixNum(*num),
+            NodeKind::DecimalNumber(decimal_num) => Value::FixDecimalNum(*decimal_num),
             NodeKind::String(s) => Value::String(s.to_string()),
             NodeKind::SelfValue => {
                 let classref = self
@@ -387,6 +387,7 @@ impl Evaluator {
                 false => "false".to_string(),
             },
             Value::FixNum(i) => i.to_string(),
+            Value::FixDecimalNum(f) => f.to_string(),
             Value::String(s) => s.clone(),
             Value::Class(class) => {
                 let class_info = self.class_table.get(*class);
