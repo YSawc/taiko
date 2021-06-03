@@ -3,7 +3,18 @@ mod test {
     use crate::eval::eval::*;
     use crate::lexer::lexer::*;
     use crate::parser::parser::*;
+    use crate::util::annot::*;
     use crate::value::value::*;
+
+    fn parse_expected_error(script: impl Into<String>, expected: ParseError) {
+        let lexer = Lexer::new(script);
+        let result = lexer.tokenize().unwrap();
+        let mut parser = Parser::new(result);
+        let res = parser.parse_program().unwrap_err();
+        if res != expected.clone() {
+            panic!("Expected:{:?} Got:{:?}", expected, res);
+        }
+    }
 
     fn eval_script(script: impl Into<String>, expected: Value) {
         let lexer = Lexer::new(script);
@@ -87,5 +98,33 @@ mod test {
         ";
         let expected = Value::String("34".to_string());
         eval_script(program, expected);
+    }
+
+    #[test]
+    fn literal_before_definition_error() {
+        let program = "
+            3 class Foo
+            end
+        ";
+        let expected = ParseError::new(
+            ParseErrorKind::LiteralBeforeDefinition,
+            Loc::new(Loc(13, 13)),
+        );
+        parse_expected_error(program, expected);
+    }
+
+    #[test]
+    fn inner_class_definition_in_method_definion_error() {
+        let program = "
+            def foo
+              class bar
+              end
+            end
+        ";
+        let expected = ParseError::new(
+            ParseErrorKind::InnerClassDefinitionInMethodDefinition,
+            Loc::new(Loc(13, 15)),
+        );
+        parse_expected_error(program, expected);
     }
 }

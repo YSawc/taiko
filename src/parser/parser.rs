@@ -8,9 +8,75 @@ use crate::value::value::*;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parser {
     tokens: Vec<Token>,
-    pub source_info: SourceInfo,
     cursor: usize,
+    block_context_stack: Vec<BlockContext>,
+    line_context_stack: Vec<LineContext>,
+    pub source_info: SourceInfo,
     pub ident_table: IdentifierTable,
+}
+
+#[allow(unused)]
+#[derive(Debug, Clone, PartialEq)]
+enum Literal {
+    String,
+    Number,
+}
+
+#[allow(unused)]
+#[derive(Debug, Clone, PartialEq)]
+enum BlockContext {
+    Class,
+    Method,
+}
+
+#[allow(unused)]
+#[derive(Debug, Clone, PartialEq)]
+enum LineContext {
+    Literal(Literal),
+    Class,
+    Method,
+}
+
+impl Parser {
+    pub fn is_first_line_context(&self) -> bool {
+        self.line_context_stack.last().is_none()
+    }
+
+    pub fn expect_first_line_context(&self) -> Result<(), ParseError> {
+        match self.line_context_stack.last().is_none() {
+            true => Ok(()),
+            false => {
+                let error_loc = self.tokens[self.cursor - 3].loc;
+                self.source_info.show_loc(&error_loc);
+                Err(ParseError::new(
+                    ParseErrorKind::LiteralBeforeDefinition,
+                    error_loc,
+                ))
+            }
+        }
+    }
+
+    pub fn reset_line_context(&mut self) {
+        self.line_context_stack = vec![];
+    }
+
+    pub fn is_out_of_method_block_context(&self) -> bool {
+        !self.block_context_stack.contains(&BlockContext::Method)
+    }
+
+    pub fn expect_out_of_method_block_context(&self) -> Result<(), ParseError> {
+        match self.is_out_of_method_block_context() {
+            true => Ok(()),
+            false => {
+                let error_loc = self.tokens[self.cursor - 6].loc;
+                self.source_info.show_loc(&error_loc);
+                Err(ParseError::new(
+                    ParseErrorKind::InnerClassDefinitionInMethodDefinition,
+                    error_loc,
+                ))
+            }
+        }
+    }
 }
 
 pub type ParseError = Annot<ParseErrorKind>;
@@ -18,6 +84,8 @@ pub type ParseError = Annot<ParseErrorKind>;
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParseErrorKind {
     UnexpectedToken,
+    LiteralBeforeDefinition,
+    InnerClassDefinitionInMethodDefinition,
     EOF,
 }
 
@@ -26,6 +94,8 @@ impl Parser {
         Parser {
             tokens: result.tokens,
             cursor: 0,
+            block_context_stack: vec![],
+            line_context_stack: vec![],
             source_info: result.source_info,
             ident_table: IdentifierTable::new(),
         }
@@ -37,6 +107,7 @@ impl Parser {
         }
     }
 
+    #[allow(unused)]
     fn is_line_term(&self) -> bool {
         self.peek_no_skip_line_term().is_line_term()
     }
@@ -45,25 +116,30 @@ impl Parser {
         self.tokens[self.cursor].loc()
     }
 
-    pub fn get(&mut self) -> &Token {
+    pub fn get(&mut self) -> Token {
         loop {
-            let token = &self.tokens[self.cursor];
+            let token = self.tokens[self.cursor].clone();
             if token.is_eof() {
                 return token;
             }
             self.cursor += 1;
             if !token.is_line_term() && !token.is_space() {
                 return token;
+            } else if token.is_line_term() {
+                self.reset_line_context();
             }
         }
     }
 
-    fn peek(&self) -> (&Token, Loc) {
+    fn peek(&mut self) -> (Token, Loc) {
         let mut c = self.cursor;
         loop {
-            let tok = &self.tokens[c];
-            if tok.is_eof() || (!tok.is_line_term() && !tok.is_space() && !tok.is_comment()) {
-                return (tok, tok.loc);
+            let tok = self.tokens[c].clone();
+            if tok.is_line_term() {
+                self.reset_line_context();
+                c += 1;
+            } else if tok.is_eof() || (!tok.is_space() && !tok.is_comment()) {
+                return (tok.clone(), tok.loc);
             } else {
                 c += 1;
             }
@@ -168,7 +244,15 @@ impl Parser {
     }
 
     pub fn parse_program(&mut self) -> Result<Node, ParseError> {
-        self.parse_comp_stmt()
+        let mut node;
+        loop {
+            node = self.parse_comp_stmt()?;
+            self.skip_space();
+            if self.tokens[self.cursor].is_eof() {
+                break;
+            }
+        }
+        Ok(node)
     }
 
     pub fn parse_comp_stmt(&mut self) -> Result<Node, ParseError> {
@@ -232,9 +316,6 @@ impl Parser {
 
     fn parse_arg_assign(&mut self) -> Result<Node, ParseError> {
         let lhs = self.parse_arg_logical_or()?;
-        if self.is_line_term() {
-            return Ok(lhs);
-        }
         if self.get_if_punct(Punct::Assign) {
             let rhs = self.parse_arg()?;
             Ok(Node::new_assign(lhs, rhs))
@@ -245,9 +326,6 @@ impl Parser {
 
     fn parse_arg_logical_or(&mut self) -> Result<Node, ParseError> {
         let lhs = self.parse_arg_logical_and()?;
-        if self.is_line_term() {
-            return Ok(lhs);
-        }
         if self.get_if_punct(Punct::LAnd) {
             let rhs = self.parse_arg_logical_or()?;
             Ok(Node::new_binop(BinOp::LAnd, lhs, rhs))
@@ -258,9 +336,6 @@ impl Parser {
 
     fn parse_arg_logical_and(&mut self) -> Result<Node, ParseError> {
         let lhs = self.parse_arg_eq()?;
-        if self.is_line_term() {
-            return Ok(lhs);
-        }
         if self.get_if_punct(Punct::LAnd) {
             let rhs = self.parse_arg_logical_and()?;
             Ok(Node::new_binop(BinOp::LAnd, lhs, rhs))
@@ -271,9 +346,6 @@ impl Parser {
 
     fn parse_arg_eq(&mut self) -> Result<Node, ParseError> {
         let lhs = self.parse_arg_comp()?;
-        if self.is_line_term() {
-            return Ok(lhs);
-        }
         if self.get_if_punct(Punct::Eq) {
             let rhs = self.parse_arg_eq()?;
             Ok(Node::new_binop(BinOp::Eq, lhs, rhs))
@@ -287,9 +359,6 @@ impl Parser {
 
     fn parse_arg_comp(&mut self) -> Result<Node, ParseError> {
         let lhs = self.parse_arg_add()?;
-        if self.is_line_term() {
-            return Ok(lhs);
-        }
         if self.get_if_punct(Punct::GE) {
             let rhs = self.parse_arg_comp()?;
             Ok(Node::new_binop(BinOp::GE, lhs, rhs))
@@ -309,9 +378,6 @@ impl Parser {
 
     fn parse_arg_add(&mut self) -> Result<Node, ParseError> {
         let lhs = self.parse_arg_mul()?;
-        if self.is_line_term() {
-            return Ok(lhs);
-        }
         let tok = self.peek_non_space().clone();
         match &tok.kind {
             TokenKind::Punct(ref punct) => match punct {
@@ -341,9 +407,6 @@ impl Parser {
 
     fn parse_arg_mul(&mut self) -> Result<Node, ParseError> {
         let lhs = self.parse_unary_minus()?;
-        if self.is_line_term() {
-            return Ok(lhs);
-        }
         self.skip_space();
         let tok = self.peek_non_space().clone();
         match &tok.kind {
@@ -459,7 +522,11 @@ impl Parser {
                 let id = self.ident_table.get_ident_id(name);
                 Ok(Node::new_const(id, loc))
             }
-            TokenKind::NumLit(num) => Ok(Node::new_number(*num, loc)),
+            TokenKind::NumLit(num) => {
+                self.line_context_stack
+                    .push(LineContext::Literal(Literal::Number));
+                Ok(Node::new_number(*num, loc))
+            }
             TokenKind::StringLit(s) => Ok(Node::new_string(s.to_string(), loc)),
             TokenKind::Punct(Punct::LParen) => {
                 let node = self.parse_comp_stmt()?;
@@ -489,6 +556,9 @@ impl Parser {
     }
 
     fn parse_class(&mut self) -> Result<Node, ParseError> {
+        self.expect_out_of_method_block_context()?;
+        self.block_context_stack.push(BlockContext::Class);
+        self.expect_first_line_context()?;
         let loc = self.loc();
         let name = match &self.get().kind {
             TokenKind::Const(s) => s.clone(),
@@ -498,6 +568,8 @@ impl Parser {
 
         let body = self.parse_comp_stmt()?;
         self.expect_reserved(Reserved::End)?;
+        self.block_context_stack.pop().unwrap();
+        self.reset_line_context();
 
         Ok(Node::new_class_decl(id, body))
     }
@@ -511,6 +583,8 @@ impl Parser {
     }
 
     fn parse_def(&mut self) -> Result<Node, ParseError> {
+        self.block_context_stack.push(BlockContext::Method);
+        self.expect_first_line_context()?;
         let loc = self.loc();
         let name = match &self.get().kind {
             TokenKind::Ident(s) => s.clone(),
@@ -521,11 +595,13 @@ impl Parser {
         let args = self.parse_params()?;
         let body = self.parse_comp_stmt()?;
         self.expect_reserved(Reserved::End)?;
+        self.block_context_stack.pop().unwrap();
+        self.reset_line_context();
 
         Ok(Node::new_method_decl(id, args, body))
     }
 
-    fn parse_params(&mut self) -> Result<Vec<Node>, ParseError> {
+    pub fn parse_params(&mut self) -> Result<Vec<Node>, ParseError> {
         if !self.get_if_punct(Punct::LParen) {
             return Ok(vec![]);
         }
@@ -550,7 +626,8 @@ impl Parser {
         if self.get_if_punct(Punct::RParen) {
             Ok(args)
         } else {
-            Err(self.error_unexpected(self.peek().1))
+            let tok = self.peek().1;
+            Err(self.error_unexpected(tok))
         }
     }
 
