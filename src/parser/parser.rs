@@ -447,45 +447,55 @@ impl Parser {
 
     fn parse_primary_ext(&mut self) -> Result<Node, ParseError> {
         let loc = self.loc();
-        let node = self.parse_primary()?;
+        let mut node = self.parse_primary()?;
         let tok = self.peek_no_skip_line_term();
-        match tok.kind {
-            TokenKind::Punct(Punct::LParen) => {
-                self.get();
-                let args = self.parse_parenthesize_args()?;
-                let end_loc = self.loc();
+        if tok.kind == TokenKind::Punct(Punct::LParen) {
+            self.get();
+            let args = self.parse_parenthesize_args()?;
+            let end_loc = self.loc();
 
-                Ok(Node::new_send(
-                    Node::new(NodeKind::SelfValue, loc),
-                    node,
-                    args,
-                    loc.merge(end_loc),
-                ))
-            }
-            TokenKind::Punct(Punct::Dot) => {
-                self.get();
-                let tok = self.get().clone();
-                match &tok.kind {
-                    TokenKind::Ident(s) => {
-                        let id = self.ident_table.get_ident_id(&s);
-                        Ok(Node::new_send(
-                            node,
-                            Node::new_local_var(id, tok.loc()),
-                            vec![],
-                            loc.merge(self.loc()),
-                        ))
+            return Ok(Node::new_send(
+                Node::new(NodeKind::SelfValue, loc),
+                node,
+                args,
+                loc.merge(end_loc),
+            ));
+        };
+        loop {
+            let tok = self.peek_no_skip_line_term();
+            node = match tok.kind {
+                TokenKind::Punct(Punct::Dot) => {
+                    self.get();
+                    let tok = self.get().clone();
+                    match &tok.kind {
+                        TokenKind::Ident(s) => {
+                            let method = s;
+                            let id = self.ident_table.get_ident_id(method);
+                            let mut args = vec![];
+                            if self.peek_no_skip_line_term().kind == TokenKind::Punct(Punct::LParen)
+                            {
+                                self.get();
+                                args = self.parse_parenthesize_args()?;
+                            }
+                            Node::new_send(
+                                node,
+                                Node::new_identifier(id, tok.loc()),
+                                args,
+                                loc.merge(self.loc()),
+                            )
+                        }
+                        TokenKind::NumLit(i) => {
+                            let receive_i = node.pick_number();
+                            Node::new_decimal_number(
+                                receive_i as f64 + ((*i as f64) * 0.1),
+                                loc.merge(self.loc()),
+                            )
+                        }
+                        _ => panic!("method name must be an identifer."),
                     }
-                    TokenKind::NumLit(i) => {
-                        let receive_i = node.pick_number();
-                        Ok(Node::new_decimal_number(
-                            receive_i as f64 + ((*i as f64) * 0.1),
-                            loc.merge(self.loc()),
-                        ))
-                    }
-                    _ => panic!("method name must be an identifer."),
                 }
+                _ => return Ok(node),
             }
-            _ => Ok(node),
         }
     }
 
@@ -516,7 +526,7 @@ impl Parser {
                 if name == "self" {
                     return Ok(Node::new(NodeKind::SelfValue, loc));
                 };
-                return Ok(Node::new_local_var(id, loc));
+                return Ok(Node::new_identifier(id, loc));
             }
             TokenKind::Const(name) => {
                 let id = self.ident_table.get_ident_id(name);

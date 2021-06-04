@@ -15,7 +15,7 @@ pub enum NodeKind {
     BinOp(BinOp, Box<Node>, Box<Node>),
     CompStmt(Vec<Node>),
     If(Box<Node>, Box<Node>, Box<Node>),
-    LocalVar(IdentId),
+    Ident(IdentId),
     Const(IdentId),
     Param(IdentId),
     FuncDecl(IdentId, NodeVec, Box<Node>),
@@ -46,7 +46,7 @@ impl std::fmt::Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
             NodeKind::BinOp(op, lhs, rhs) => write!(f, "[{:?} ( {}, {}  )]", op, lhs, rhs),
-            NodeKind::LocalVar(id) => write!(f, "(LocalVar {:?})", id),
+            NodeKind::Ident(id) => write!(f, "(LocalVar {:?})", id),
             NodeKind::Send(receiver, method_name, nodes) => {
                 write!(f, "[ Send [{}]: [{}] ", receiver, method_name)?;
                 for node in nodes {
@@ -102,8 +102,8 @@ impl Node {
         Node::new(kind, loc)
     }
 
-    pub fn new_local_var(id: IdentId, loc: Loc) -> Self {
-        Node::new(NodeKind::LocalVar(id), loc)
+    pub fn new_identifier(id: IdentId, loc: Loc) -> Self {
+        Node::new(NodeKind::Ident(id), loc)
     }
 
     pub fn new_assign(lhs: Node, rhs: Node) -> Self {

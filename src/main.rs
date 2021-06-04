@@ -4,13 +4,21 @@ use taiko::parser::parser::*;
 
 fn main() {
     let prog = "
+        a = 1
         class Foo
+          puts(a)
+          a = 2
+          def bar
+            puts(a)
+            a = 3
+            puts(a)
+          end
+          puts(a)
         end
-        puts(Foo)
+
+        puts(a)
         puts(Foo.new)
-        puts(Foo.new)
-        puts(Foo.new)
-        puts(Foo)
+        puts(Foo.new.bar)
         ";
 
     println!("{}", prog);

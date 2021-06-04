@@ -14,7 +14,7 @@ pub struct Evaluator {
     pub method_table: FuncTable,
     pub const_table: ValueTable,
     pub class_stack: Vec<ClassRef>,
-    pub exec_context: Vec<ExecContext>,
+    pub scope_stack: Vec<LocalScope>,
 }
 
 type ValueTable = FxHashMap<IdentId, Value>;
@@ -38,13 +38,13 @@ impl std::fmt::Debug for FuncInfo {
 type FuncTable = FxHashMap<IdentId, FuncInfo>;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ExecContext {
+pub struct LocalScope {
     lvar_table: ValueTable,
 }
 
-impl ExecContext {
+impl LocalScope {
     pub fn new() -> Self {
-        ExecContext {
+        LocalScope {
             lvar_table: FxHashMap::default(),
         }
     }
@@ -60,7 +60,7 @@ impl Evaluator {
             method_table: FxHashMap::default(),
             const_table: FxHashMap::default(),
             class_stack: vec![],
-            exec_context: vec![ExecContext::new()],
+            scope_stack: vec![LocalScope::new()],
         };
 
         macro_rules! reg_method_table {
@@ -118,12 +118,17 @@ impl Evaluator {
     }
 
     pub fn lvar_table(&mut self) -> &mut ValueTable {
-        &mut self.exec_context.last_mut().unwrap().lvar_table
+        &mut self.scope_stack.last_mut().unwrap().lvar_table
     }
 
     fn new_class_info(&mut self, id: IdentId, body: Node) -> ClassRef {
         let name = self.ident_table.get_name(id).clone();
         self.class_table.new_class(id, name, body)
+    }
+
+    fn new_propagated_local_var_stack(&mut self) {
+        let last_scope_stack = self.scope_stack.last().unwrap().to_owned();
+        self.scope_stack.push(last_scope_stack);
     }
 
     pub fn eval_node(&mut self, node: &Node) -> Value {
@@ -138,7 +143,7 @@ impl Evaluator {
                     .unwrap_or_else(|| panic!("Evaluator#eval_node: class stack is empty"));
                 Value::Class(*classref)
             }
-            NodeKind::LocalVar(id) => match self.lvar_table().get(&id) {
+            NodeKind::Ident(id) => match self.lvar_table().get(&id) {
                 Some(val) => val.clone(),
                 None => {
                     self.source_info.show_loc(&node.loc);
@@ -211,7 +216,7 @@ impl Evaluator {
                 }
             }
             NodeKind::Assign(lhs, rhs) => match lhs.kind {
-                NodeKind::LocalVar(id) => {
+                NodeKind::Ident(id) => {
                     let rhs = self.eval_node(&rhs);
                     match self.lvar_table().get_mut(&id) {
                         Some(val) => {
@@ -254,14 +259,16 @@ impl Evaluator {
                 let info = self.new_class_info(*id, *body.clone());
                 let val = Value::Class(info);
                 self.const_table.insert(*id, val);
+                self.new_propagated_local_var_stack();
                 self.class_stack.push(info);
                 self.eval_node(body);
                 self.class_stack.pop();
+                self.scope_stack.pop();
                 Value::Nil
             }
             NodeKind::Send(receiver, method, args) => {
                 let id = match method.kind {
-                    NodeKind::LocalVar(id) => id,
+                    NodeKind::Ident(id) => id,
                     _ => unimplemented!("method must be identifer."),
                 };
                 let receiver = self.eval_node(receiver);
@@ -273,7 +280,6 @@ impl Evaluator {
                 match info {
                     FuncInfo::RubyFunc { params, body } => {
                         let args_len = args.len();
-                        self.exec_context.push(ExecContext::new());
                         for (i, param) in params.iter().enumerate() {
                             if let Node {
                                 kind: NodeKind::Param(param_id),
@@ -290,9 +296,7 @@ impl Evaluator {
                                 unimplemented!("Illegal parameter.");
                             }
                         }
-                        let val = self.eval_node(&body);
-                        self.exec_context.pop();
-                        val
+                        self.eval_node(&body)
                     }
                     FuncInfo::BuiltinFunc { func, .. } => func(self, receiver, args_val),
                 }
