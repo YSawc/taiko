@@ -97,4 +97,13 @@ mod test {
         let expected = Instance(InstanceRef(2));
         eval_script(program, expected);
     }
+
+    #[test]
+    fn assert1() {
+        let program = "
+        assert(1 == 1, 'must true.')
+        ";
+        let expected = Value::Nil;
+        eval_script(program, expected);
+    }
 }

@@ -78,9 +78,10 @@ impl Evaluator {
 
         reg_method_table! {
             "puts" => Evaluator::builtin_puts,
+            "new" => Evaluator::builtin_new,
             "to_i" => Evaluator::builtin_to_i,
             "to_s" => Evaluator::builtin_to_s,
-            "new" => Evaluator::builtin_new
+            "assert" => Evaluator::builtin_assert
         }
 
         let id = eval.ident_table.get_ident_id(&"main".to_string());
@@ -106,7 +107,6 @@ impl Evaluator {
             _ => unimplemented!(),
         }
     }
-
     pub fn builtin_to_i(eval: &mut Evaluator, receiver: Value, _args: Vec<Value>) -> Value {
         let i = eval.val_to_i(&receiver);
         Value::FixNum(i)
@@ -117,6 +117,21 @@ impl Evaluator {
         Value::String(s)
     }
 
+    pub fn builtin_assert(eval: &mut Evaluator, _receiver: Value, args: Vec<Value>) -> Value {
+        if args.len() != 2 {
+            unimplemented!();
+        };
+        if eval.val_to_bool(&args[0]) {
+            Value::Nil
+        } else if !eval.val_to_bool(&args[0]) {
+            panic!("assertion fail!\n{:?}", eval.val_to_s(&args[1]))
+        } else {
+            unimplemented!()
+        }
+    }
+}
+
+impl Evaluator {
     pub fn lvar_table(&mut self) -> &mut ValueTable {
         &mut self.scope_stack.last_mut().unwrap().lvar_table
     }
@@ -413,7 +428,13 @@ impl Evaluator {
         match val {
             Value::Nil => false,
             Value::Bool(b) => *b,
-            Value::FixNum(_) => true,
+            Value::FixNum(n) => {
+                if n > &0 {
+                    true
+                } else {
+                    false
+                }
+            }
             Value::String(_) => true,
             _ => unimplemented!(),
         }

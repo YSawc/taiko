@@ -6,17 +6,17 @@ fn main() {
     let prog = "
         a = 1
         class Foo
-          puts(a)
+          assert(a==1, 'must true')
           a = 2
           def bar
             puts(a)
             a = 3
-            puts(a)
+            assert(a==3, 'must true')
           end
-          puts(a)
+          assert(a==2, 'must true')
         end
 
-        puts(a)
+        assert(a==1, 'must true')
         puts(Foo.new)
         puts(Foo.new.bar)
         ";
