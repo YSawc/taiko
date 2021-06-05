@@ -22,14 +22,23 @@ type BuiltinFunc = fn(eval: &mut Evaluator, receiver: Value, args: Vec<Value>) -
 
 #[derive(Clone)]
 pub enum FuncInfo {
-    RubyFunc { params: Vec<Node>, body: Box<Node> },
-    BuiltinFunc { name: String, func: BuiltinFunc },
+    RubyFunc {
+        params: Vec<Node>,
+        body: Box<Node>,
+        local_scope: LocalScope,
+    },
+    BuiltinFunc {
+        name: String,
+        func: BuiltinFunc,
+    },
 }
 
 impl std::fmt::Debug for FuncInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FuncInfo::RubyFunc { params, body } => write!(f, "RubyFunc {:?} {:?}", params, body),
+            FuncInfo::RubyFunc { params, body, .. } => {
+                write!(f, "RubyFunc {:?} {:?}", params, body)
+            }
             FuncInfo::BuiltinFunc { name, .. } => write!(f, "BuiltinFunc {:?}", name),
         }
     }
@@ -266,6 +275,7 @@ impl Evaluator {
                     FuncInfo::RubyFunc {
                         params: params.clone(),
                         body: body.clone(),
+                        local_scope: self.scope_stack.last().unwrap().to_owned(),
                     },
                 );
                 Value::Nil
@@ -293,8 +303,13 @@ impl Evaluator {
                     None => unimplemented!("undefined function."),
                 };
                 match info {
-                    FuncInfo::RubyFunc { params, body } => {
+                    FuncInfo::RubyFunc {
+                        params,
+                        body,
+                        local_scope,
+                    } => {
                         let args_len = args.len();
+                        self.scope_stack.push(local_scope);
                         for (i, param) in params.iter().enumerate() {
                             if let Node {
                                 kind: NodeKind::Param(param_id),
@@ -311,7 +326,9 @@ impl Evaluator {
                                 unimplemented!("Illegal parameter.");
                             }
                         }
-                        self.eval_node(&body)
+                        let val = self.eval_node(&body);
+                        self.scope_stack.pop();
+                        val
                     }
                     FuncInfo::BuiltinFunc { func, .. } => func(self, receiver, args_val),
                 }

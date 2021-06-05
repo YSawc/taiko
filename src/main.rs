@@ -3,25 +3,22 @@ use taiko::lexer::lexer::*;
 use taiko::parser::parser::*;
 
 fn main() {
-    let prog = "
+    let prog = r#"
         a = 1
         class Foo
-          assert(a==1, 'must true')
           a = 2
-          def bar
-            puts(a)
-            a = 3
-            assert(a==3, 'must true')
+          def bar(b)
+            b*2
           end
-          assert(a==2, 'must true')
+
+          def bar2
+            a
+          end
         end
 
-        assert(a==1, 'must true')
-        puts(Foo.new)
-        puts(Foo.new.bar)
-        ";
-
-    println!("{}", prog);
+        assert(Foo.new.bar(5) == 10, "must pass")
+        Foo.new.bar2
+        "#;
 
     let lexer = Lexer::new(prog);
     match lexer.tokenize() {
