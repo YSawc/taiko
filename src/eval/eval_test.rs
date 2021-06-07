@@ -2,20 +2,23 @@
 mod test {
     use crate::eval::eval::*;
     use crate::instance::instance::*;
-    use crate::lexer::lexer::*;
     use crate::parser::parser::*;
     use crate::value::value::Value::Instance;
     use crate::value::value::*;
 
     fn eval_script(script: impl Into<String>, expected: Value) {
-        let lexer = Lexer::new(script);
-        let result = lexer.tokenize().unwrap();
-        let mut parser = Parser::new(result);
-        let node = parser.parse_comp_stmt().unwrap();
-        let mut eval = Evaluator::new(parser.source_info, parser.ident_table);
-        let res = eval.eval_node(&node);
-        if res != expected {
-            panic!("Expected:{:?} Got:{:?}", expected, res);
+        let mut parser = Parser::new();
+        let node = parser.parse_program(script.into()).unwrap();
+
+        let mut eval = Evaluator::new();
+        eval.init(parser.lexer.source_info, parser.ident_table);
+        match eval.eval_node(&node) {
+            Ok(res) => {
+                if res != expected {
+                    panic!("Expected:{:?} Got:{:?}", expected, res);
+                }
+            }
+            Err(err) => panic!("Got runtime error: {:?}", err),
         }
     }
 

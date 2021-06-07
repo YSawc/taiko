@@ -4,9 +4,9 @@ mod test {
     use crate::token::token::*;
     use crate::util::annot::*;
 
-    fn assert_lexer(program: &str, ans: Vec<Annot<TokenKind>>) {
-        let lexer = Lexer::new(program);
-        match lexer.tokenize() {
+    fn assert_lexer(program: impl Into<String>, ans: Vec<Annot<TokenKind>>) {
+        let mut lexer = Lexer::new();
+        match lexer.tokenize(program.into()) {
             Ok(lexer_result) => assert_eq!(lexer_result.tokens, ans),
             Err(err) => panic!("{:?}", err),
         }
@@ -75,8 +75,8 @@ mod test {
     fn lexer_forbidden_tab() {
         let program = "\ta = 0";
         println!("{}", program);
-        let lexer = Lexer::new(program);
-        let lexer_result = lexer.tokenize().unwrap_err();
+        let mut lexer = Lexer::new();
+        let lexer_result = lexer.tokenize(program).unwrap_err();
         assert_eq!(lexer_result, Error::ForbiddenTab);
     }
 

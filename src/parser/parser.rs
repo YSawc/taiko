@@ -7,11 +7,11 @@ use crate::value::value::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parser {
+    pub lexer: Lexer,
     tokens: Vec<Token>,
     cursor: usize,
     block_context_stack: Vec<BlockContext>,
     line_context_stack: Vec<LineContext>,
-    pub source_info: SourceInfo,
     pub ident_table: IdentifierTable,
 }
 
@@ -47,7 +47,7 @@ impl Parser {
             true => Ok(()),
             false => {
                 let error_loc = self.tokens[self.cursor - 3].loc;
-                self.source_info.show_loc(&error_loc);
+                self.lexer.source_info.show_loc(&error_loc);
                 Err(ParseError::new(
                     ParseErrorKind::LiteralBeforeDefinition,
                     error_loc,
@@ -69,7 +69,7 @@ impl Parser {
             true => Ok(()),
             false => {
                 let error_loc = self.tokens[self.cursor - 6].loc;
-                self.source_info.show_loc(&error_loc);
+                self.lexer.source_info.show_loc(&error_loc);
                 Err(ParseError::new(
                     ParseErrorKind::InnerClassDefinitionInMethodDefinition,
                     error_loc,
@@ -90,13 +90,14 @@ pub enum ParseErrorKind {
 }
 
 impl Parser {
-    pub fn new(result: LexerResult) -> Self {
+    pub fn new() -> Self {
+        let lexer = Lexer::new();
         Parser {
-            tokens: result.tokens,
+            lexer,
+            tokens: vec![],
             cursor: 0,
             block_context_stack: vec![],
             line_context_stack: vec![],
-            source_info: result.source_info,
             ident_table: IdentifierTable::new(),
         }
     }
@@ -138,7 +139,10 @@ impl Parser {
             if tok.is_line_term() {
                 self.reset_line_context();
                 c += 1;
-            } else if tok.is_eof() || (!tok.is_space() && !tok.is_comment()) {
+            } else if tok.is_eof() {
+                self.cursor = c;
+                return (tok.clone(), tok.loc);
+            } else if !tok.is_space() && !tok.is_comment() {
                 return (tok.clone(), tok.loc);
             } else {
                 c += 1;
@@ -201,13 +205,11 @@ impl Parser {
     }
 
     fn error_unexpected(&self, loc: Loc) -> ParseError {
-        self.source_info.show_loc(&loc);
+        self.lexer.source_info.show_loc(&loc);
         ParseError::new(ParseErrorKind::UnexpectedToken, loc)
     }
 
-    #[allow(unused)]
     fn error_eof(&self, loc: Loc) -> ParseError {
-        self.source_info.show_loc(&loc);
         ParseError::new(ParseErrorKind::EOF, loc)
     }
 
@@ -243,7 +245,9 @@ impl Parser {
         &self.tokens[self.cursor]
     }
 
-    pub fn parse_program(&mut self) -> Result<Node, ParseError> {
+    pub fn parse_program(&mut self, program: String) -> Result<Node, ParseError> {
+        self.tokens = self.lexer.tokenize(program).unwrap().tokens;
+        self.cursor = 0;
         let mut node;
         loop {
             node = self.parse_comp_stmt()?;
@@ -261,7 +265,11 @@ impl Parser {
         loop {
             let (tok, _) = self.peek();
             match tok.kind {
-                TokenKind::Punct(Punct::Comment) => continue,
+                TokenKind::Punct(punct) => match punct {
+                    Punct::Comment => continue,
+                    Punct::Semi => break,
+                    _ => {}
+                },
                 TokenKind::EOF => break,
                 TokenKind::Reserved(reserved) => match reserved {
                     Reserved::Else | Reserved::Elsif | Reserved::End => break,

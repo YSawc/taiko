@@ -1,13 +1,11 @@
 #[cfg(test)]
 mod test {
-    use crate::lexer::lexer::*;
     use crate::parser::parser::*;
 
     fn eval_script(script: impl Into<String>, expected: Vec<(usize, usize, usize)>) {
-        let lexer = Lexer::new(script);
-        let result = lexer.tokenize().unwrap();
-        let parser = Parser::new(result);
-        let coordinates = parser.source_info.coordinates;
+        let mut parser = Parser::new();
+        parser.parse_program(script.into());
+        let coordinates = parser.lexer.source_info.coordinates;
         if coordinates != expected {
             panic!("Expected:{:?} Got:{:?}", expected, coordinates);
         }

@@ -1,6 +1,7 @@
 use crate::class::class::*;
 use crate::instance::instance::*;
 use crate::node::node::*;
+use crate::util::annot::*;
 use crate::util::util::*;
 use crate::value::value::*;
 use rustc_hash::FxHashMap;
@@ -11,7 +12,7 @@ pub struct Evaluator {
     pub ident_table: IdentifierTable,
     pub class_table: GlobalClassTable,
     pub instance_table: GlobalInstanceTable,
-    pub method_table: FuncTable,
+    pub method_table: MethodTable,
     pub const_table: ValueTable,
     pub class_stack: Vec<ClassRef>,
     pub scope_stack: Vec<LocalScope>,
@@ -21,7 +22,7 @@ type ValueTable = FxHashMap<IdentId, Value>;
 type BuiltinFunc = fn(eval: &mut Evaluator, receiver: Value, args: Vec<Value>) -> Value;
 
 #[derive(Clone)]
-pub enum FuncInfo {
+pub enum MethodInfo {
     RubyFunc {
         params: Vec<Node>,
         body: Box<Node>,
@@ -33,18 +34,18 @@ pub enum FuncInfo {
     },
 }
 
-impl std::fmt::Debug for FuncInfo {
+impl std::fmt::Debug for MethodInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FuncInfo::RubyFunc { params, body, .. } => {
+            MethodInfo::RubyFunc { params, body, .. } => {
                 write!(f, "RubyFunc {:?} {:?}", params, body)
             }
-            FuncInfo::BuiltinFunc { name, .. } => write!(f, "BuiltinFunc {:?}", name),
+            MethodInfo::BuiltinFunc { name, .. } => write!(f, "BuiltinFunc {:?}", name),
         }
     }
 }
 
-type FuncTable = FxHashMap<IdentId, FuncInfo>;
+pub type MethodTable = FxHashMap<IdentId, MethodInfo>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct LocalScope {
@@ -59,31 +60,53 @@ impl LocalScope {
     }
 }
 
+pub type EvalResult = Result<Value, RuntimeError>;
+
+pub type RuntimeError = Annot<RuntimeErrorKind>;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RuntimeErrorKind {
+    Unimplemented(String),
+    Unreachable(String),
+    Name(String),
+    NoMethod(String),
+}
+
 impl Evaluator {
-    pub fn new(source_info: SourceInfo, ident_table: IdentifierTable) -> Self {
-        let mut eval = Evaluator {
-            source_info,
-            ident_table,
+    pub fn new() -> Self {
+        Evaluator {
+            source_info: SourceInfo::new(),
+            ident_table: IdentifierTable::new(),
             class_table: GlobalClassTable::new(),
             instance_table: GlobalInstanceTable::new(),
             method_table: FxHashMap::default(),
             const_table: FxHashMap::default(),
             class_stack: vec![],
             scope_stack: vec![LocalScope::new()],
-        };
+        }
+    }
+
+    pub fn init(&mut self, source_info: SourceInfo, ident_table: IdentifierTable) {
+        self.repl_init(source_info, ident_table);
+        self.repl_set_main();
+    }
+
+    pub fn repl_init(&mut self, source_info: SourceInfo, ident_table: IdentifierTable) {
+        self.source_info = source_info;
+        self.ident_table = ident_table;
 
         macro_rules! reg_method_table {
-                    ( $($id:expr => $func:path),+ ) => {
-                        $(
-                            let id = eval.ident_table.get_ident_id(&$id.to_string());
-                            let info = FuncInfo::BuiltinFunc {
-                                name: $id.to_string(),
-                                func: $func
-                            };
-                            eval.method_table.insert(id, info);
-                        )+
-                    };
-                }
+                     ( $($id:expr => $func:path),+ ) => {
+                         $(
+                             let id = self.ident_table.get_ident_id(&$id.to_string());
+                             let info = MethodInfo::BuiltinFunc {
+                                 name: $id.to_string(),
+                                 func: $func
+                             };
+                             self.method_table.insert(id, info);
+                         )+
+                     };
+                 }
 
         reg_method_table! {
             "puts" => Evaluator::builtin_puts,
@@ -92,12 +115,12 @@ impl Evaluator {
             "to_s" => Evaluator::builtin_to_s,
             "assert" => Evaluator::builtin_assert
         }
+    }
 
-        let id = eval.ident_table.get_ident_id(&"main".to_string());
-        let classref = eval.new_class_info(id, Node::new_comp_stmt());
-        eval.class_stack.push(classref);
-
-        eval
+    pub fn repl_set_main(&mut self) {
+        let id = self.ident_table.get_ident_id(&"main".to_string());
+        let classref = self.new_class(id, Node::new_comp_stmt());
+        self.class_stack.push(classref);
     }
 
     pub fn builtin_puts(eval: &mut Evaluator, _receiver: Value, args: Vec<Value>) -> Value {
@@ -155,20 +178,36 @@ impl Evaluator {
         self.scope_stack.push(last_scope_stack);
     }
 
-    pub fn eval_node(&mut self, node: &Node) -> Value {
+    pub fn eval(&mut self, node: &Node) -> EvalResult {
+        match self.eval_node(node) {
+            Ok(res) => Ok(res),
+            Err(err) => {
+                self.source_info.show_loc(&err.loc);
+                match &err.kind {
+                    RuntimeErrorKind::Name(s) => println!("NameError ({})", s),
+                    RuntimeErrorKind::NoMethod(s) => println!("NoMethodError ({})", s),
+                    RuntimeErrorKind::Unimplemented(s) => println!("Unimplemented ({})", s),
+                    RuntimeErrorKind::Unreachable(s) => println!("Unreachable ({})", s),
+                }
+                Err(err)
+            }
+        }
+    }
+
+    pub fn eval_node(&mut self, node: &Node) -> EvalResult {
         match &node.kind {
-            NodeKind::Number(num) => Value::FixNum(*num),
-            NodeKind::DecimalNumber(decimal_num) => Value::FixDecimalNum(*decimal_num),
-            NodeKind::String(s) => Value::String(s.to_string()),
+            NodeKind::Number(num) => Ok(Value::FixNum(*num)),
+            NodeKind::DecimalNumber(decimal_num) => Ok(Value::FixDecimalNum(*decimal_num)),
+            NodeKind::String(s) => Ok(Value::String(s.to_string())),
             NodeKind::SelfValue => {
                 let classref = self
                     .class_stack
                     .last()
-                    .unwrap_or_else(|| panic!("Evaluator#eval_node: class stack is empty"));
-                Value::Class(*classref)
+                    .unwrap_or_else(|| panic!("Evaluator#eval: class stack is empty"));
+                Ok(Value::Class(*classref))
             }
             NodeKind::Ident(id) => match self.lvar_table().get(&id) {
-                Some(val) => val.clone(),
+                Some(val) => Ok(val.clone()),
                 None => {
                     self.source_info.show_loc(&node.loc);
                     println!("{:?}", self.lvar_table());
@@ -176,7 +215,7 @@ impl Evaluator {
                 }
             },
             NodeKind::Const(id) => match self.const_table.get(&id) {
-                Some(val) => val.clone(),
+                Some(val) => Ok(val.clone()),
                 None => {
                     self.source_info.show_loc(&node.loc());
                     println!("{:?}", self.lvar_table());
@@ -186,14 +225,14 @@ impl Evaluator {
             NodeKind::BinOp(op, lhs, rhs) => {
                 match op {
                     BinOp::LAnd => {
-                        let lhs_v = self.eval_node(&lhs);
+                        let lhs_v = self.eval_node(&lhs)?;
                         if let Value::Bool(b) = lhs_v {
                             if !b {
-                                return Value::Bool(false);
+                                return Ok(Value::Bool(false));
                             }
-                            let rhs_v = self.eval_node(&rhs);
+                            let rhs_v = self.eval_node(&rhs)?;
                             if let Value::Bool(b) = rhs_v {
-                                return Value::Bool(b);
+                                return Ok(Value::Bool(b));
                             } else {
                                 self.source_info.show_loc(&rhs.loc());
                                 panic!("Expected bool.");
@@ -204,14 +243,14 @@ impl Evaluator {
                         }
                     }
                     BinOp::LOr => {
-                        let lhs_v = self.eval_node(&lhs);
+                        let lhs_v = self.eval_node(&lhs)?;
                         if let Value::Bool(b) = lhs_v {
                             if b {
-                                return Value::Bool(true);
+                                return Ok(Value::Bool(true));
                             }
-                            let rhs_v = self.eval_node(&rhs);
+                            let rhs_v = self.eval_node(&rhs)?;
                             if let Value::Bool(b) = rhs_v {
-                                return Value::Bool(b);
+                                return Ok(Value::Bool(b));
                             } else {
                                 self.source_info.show_loc(&rhs.loc());
                                 panic!("Expected bool.");
@@ -223,8 +262,8 @@ impl Evaluator {
                     }
                     _ => {}
                 }
-                let lhs = self.eval_node(&lhs);
-                let rhs = self.eval_node(&rhs);
+                let lhs = self.eval_node(&lhs)?;
+                let rhs = self.eval_node(&rhs)?;
                 match op {
                     BinOp::Add => self.eval_add(lhs, rhs),
                     BinOp::Sub => self.eval_sub(lhs, rhs),
@@ -241,7 +280,7 @@ impl Evaluator {
             }
             NodeKind::Assign(lhs, rhs) => match lhs.kind {
                 NodeKind::Ident(id) => {
-                    let rhs = self.eval_node(&rhs);
+                    let rhs = self.eval_node(&rhs)?;
                     match self.lvar_table().get_mut(&id) {
                         Some(val) => {
                             *val = rhs.clone();
@@ -250,19 +289,19 @@ impl Evaluator {
                             self.lvar_table().insert(id, rhs.clone());
                         }
                     }
-                    rhs
+                    Ok(rhs)
                 }
                 _ => unimplemented!(),
             },
             NodeKind::CompStmt(nodes) => {
                 let mut val = Value::Nil;
                 for node in nodes {
-                    val = self.eval_node(&node);
+                    val = self.eval_node(&node)?;
                 }
-                val
+                Ok(val)
             }
             NodeKind::If(cond_, then_, else_) => {
-                let cond_val = self.eval_node(&cond_);
+                let cond_val = self.eval_node(&cond_)?;
                 if self.val_to_bool(&cond_val) {
                     self.eval_node(&then_)
                 } else {
@@ -272,13 +311,13 @@ impl Evaluator {
             NodeKind::FuncDecl(id, params, body) => {
                 self.method_table.insert(
                     *id,
-                    FuncInfo::RubyFunc {
+                    MethodInfo::RubyFunc {
                         params: params.clone(),
                         body: body.clone(),
                         local_scope: self.scope_stack.last().unwrap().to_owned(),
                     },
                 );
-                Value::Nil
+                Ok(Value::Nil)
             }
             NodeKind::ClassDecl(id, body) => {
                 let info = self.new_class_info(*id, *body.clone());
@@ -286,24 +325,25 @@ impl Evaluator {
                 self.const_table.insert(*id, val);
                 self.new_propagated_local_var_stack();
                 self.class_stack.push(info);
-                self.eval_node(body);
+                self.eval_node(body)?;
                 self.class_stack.pop();
                 self.scope_stack.pop();
-                Value::Nil
+                Ok(Value::Nil)
             }
             NodeKind::Send(receiver, method, args) => {
                 let id = match method.kind {
                     NodeKind::Ident(id) => id,
                     _ => unimplemented!("method must be identifer."),
                 };
-                let receiver = self.eval_node(receiver);
-                let args_val: Vec<Value> = args.iter().map(|x| self.eval_node(&x)).collect();
+                let receiver = self.eval_node(receiver)?;
+                let args_val: Vec<Value> =
+                    args.iter().map(|x| self.eval_node(&x).unwrap()).collect();
                 let info = match self.method_table.get(&id) {
                     Some(info) => info.clone(),
                     None => unimplemented!("undefined function."),
                 };
                 match info {
-                    FuncInfo::RubyFunc {
+                    MethodInfo::RubyFunc {
                         params,
                         body,
                         local_scope,
@@ -330,109 +370,123 @@ impl Evaluator {
                         self.scope_stack.pop();
                         val
                     }
-                    FuncInfo::BuiltinFunc { func, .. } => func(self, receiver, args_val),
+                    MethodInfo::BuiltinFunc { func, .. } => Ok(func(self, receiver, args_val)),
                 }
             }
             _ => unimplemented!("{:?}", node.kind),
         }
     }
 
-    fn eval_add(&mut self, lhs: Value, rhs: Value) -> Value {
+    fn eval_add(&mut self, lhs: Value, rhs: Value) -> EvalResult {
         match (lhs, rhs) {
-            (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::FixNum(lhs + rhs),
+            (Value::FixNum(lhs), Value::FixNum(rhs)) => Ok(Value::FixNum(lhs + rhs)),
             (Value::FixDecimalNum(lhs), Value::FixNum(rhs)) => {
-                Value::FixDecimalNum(lhs + (rhs as f64))
+                Ok(Value::FixDecimalNum(lhs + (rhs as f64)))
             }
             (Value::FixNum(lhs), Value::FixDecimalNum(rhs)) => {
-                Value::FixDecimalNum((lhs as f64) + rhs)
+                Ok(Value::FixDecimalNum((lhs as f64) + rhs))
             }
             (Value::FixDecimalNum(lhs), Value::FixDecimalNum(rhs)) => {
-                Value::FixDecimalNum(lhs + rhs)
+                Ok(Value::FixDecimalNum(lhs + rhs))
             }
             (_, _) => unimplemented!(),
         }
     }
 
-    fn eval_sub(&mut self, lhs: Value, rhs: Value) -> Value {
+    fn eval_sub(&mut self, lhs: Value, rhs: Value) -> EvalResult {
         match (lhs, rhs) {
-            (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::FixNum(lhs - rhs),
+            (Value::FixNum(lhs), Value::FixNum(rhs)) => Ok(Value::FixNum(lhs - rhs)),
             (Value::FixDecimalNum(lhs), Value::FixNum(rhs)) => {
-                Value::FixDecimalNum(lhs - (rhs as f64))
+                Ok(Value::FixDecimalNum(lhs - (rhs as f64)))
             }
             (Value::FixNum(lhs), Value::FixDecimalNum(rhs)) => {
-                Value::FixDecimalNum((lhs as f64) - rhs)
+                Ok(Value::FixDecimalNum((lhs as f64) - rhs))
             }
             (Value::FixDecimalNum(lhs), Value::FixDecimalNum(rhs)) => {
-                Value::FixDecimalNum(lhs - rhs)
+                Ok(Value::FixDecimalNum(lhs - rhs))
             }
             (_, _) => unimplemented!(),
         }
     }
 
-    fn eval_mul(&mut self, lhs: Value, rhs: Value) -> Value {
+    fn eval_mul(&mut self, lhs: Value, rhs: Value) -> EvalResult {
         match (lhs, rhs) {
-            (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::FixNum(lhs * rhs),
+            (Value::FixNum(lhs), Value::FixNum(rhs)) => Ok(Value::FixNum(lhs * rhs)),
             (Value::FixDecimalNum(lhs), Value::FixNum(rhs)) => {
-                Value::FixDecimalNum(lhs * (rhs as f64))
+                Ok(Value::FixDecimalNum(lhs * (rhs as f64)))
             }
             (Value::FixNum(lhs), Value::FixDecimalNum(rhs)) => {
-                Value::FixDecimalNum((lhs as f64) * rhs)
+                Ok(Value::FixDecimalNum((lhs as f64) * rhs))
             }
             (Value::FixDecimalNum(lhs), Value::FixDecimalNum(rhs)) => {
-                Value::FixDecimalNum(lhs * rhs)
+                Ok(Value::FixDecimalNum(lhs * rhs))
             }
             (_, _) => unimplemented!(),
         }
     }
 
-    fn eval_div(&mut self, lhs: Value, rhs: Value) -> Value {
+    fn eval_div(&mut self, lhs: Value, rhs: Value) -> EvalResult {
         match (lhs, rhs) {
-            (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::FixNum(lhs / rhs),
+            (Value::FixNum(lhs), Value::FixNum(rhs)) => Ok(Value::FixNum(lhs / rhs)),
             (Value::FixDecimalNum(lhs), Value::FixNum(rhs)) => {
-                Value::FixDecimalNum(lhs / (rhs as f64))
+                Ok(Value::FixDecimalNum(lhs / (rhs as f64)))
             }
             (Value::FixNum(lhs), Value::FixDecimalNum(rhs)) => {
-                Value::FixDecimalNum((lhs as f64) / rhs)
+                Ok(Value::FixDecimalNum((lhs as f64) / rhs))
             }
             (Value::FixDecimalNum(lhs), Value::FixDecimalNum(rhs)) => {
-                Value::FixDecimalNum(lhs / rhs)
+                Ok(Value::FixDecimalNum(lhs / rhs))
             }
             (_, _) => unimplemented!(),
         }
     }
 
-    fn eval_eq(&mut self, lhs: Value, rhs: Value) -> Value {
+    fn eval_eq(&mut self, lhs: Value, rhs: Value) -> EvalResult {
         match (lhs, rhs) {
-            (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::Bool(lhs == rhs),
-            (Value::Bool(lhs), Value::Bool(rhs)) => Value::Bool(lhs == rhs),
+            (Value::FixNum(lhs), Value::FixNum(rhs)) => Ok(Value::Bool(lhs == rhs)),
+            (Value::Bool(lhs), Value::Bool(rhs)) => Ok(Value::Bool(lhs == rhs)),
             (_, _) => unimplemented!(),
         }
     }
 
-    fn eval_neq(&mut self, lhs: Value, rhs: Value) -> Value {
+    fn eval_neq(&mut self, lhs: Value, rhs: Value) -> EvalResult {
         match (lhs, rhs) {
-            (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::Bool(lhs != rhs),
-            (Value::Bool(lhs), Value::Bool(rhs)) => Value::Bool(lhs != rhs),
+            (Value::FixNum(lhs), Value::FixNum(rhs)) => Ok(Value::Bool(lhs != rhs)),
+            (Value::Bool(lhs), Value::Bool(rhs)) => Ok(Value::Bool(lhs != rhs)),
             (_, _) => unimplemented!("NoMethodError: '!='"),
         }
     }
 
-    fn eval_ge(&mut self, lhs: Value, rhs: Value) -> Value {
+    fn eval_ge(&mut self, lhs: Value, rhs: Value) -> EvalResult {
         match (lhs, rhs) {
-            (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::Bool(lhs >= rhs),
+            (Value::FixNum(lhs), Value::FixNum(rhs)) => Ok(Value::Bool(lhs >= rhs)),
             (_, _) => unimplemented!("NoMethodError: '>='"),
         }
     }
 
-    fn eval_gt(&mut self, lhs: Value, rhs: Value) -> Value {
+    fn eval_gt(&mut self, lhs: Value, rhs: Value) -> EvalResult {
         match (lhs, rhs) {
-            (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::Bool(lhs > rhs),
+            (Value::FixNum(lhs), Value::FixNum(rhs)) => Ok(Value::Bool(lhs > rhs)),
             (_, _) => unimplemented!("NoMethodError: '>'"),
         }
     }
 }
 
 impl Evaluator {
+    pub fn new_class(&mut self, id: IdentId, body: Node) -> ClassRef {
+        let name = self.ident_table.get_name(id).clone();
+        let class_ref = self.class_table.new_class(id, name, body);
+        let id = self.ident_table.get_ident_id(&"new".to_string());
+        let info = MethodInfo::BuiltinFunc {
+            name: "new".to_string(),
+            func: Evaluator::builtin_new,
+        };
+
+        self.class_table
+            .get_mut(class_ref)
+            .add_class_method(id, info);
+        class_ref
+    }
     pub fn new_instance(&mut self, class_id: ClassRef) -> InstanceRef {
         let class_info = self.class_table.get(class_id);
         let class_name = class_info.name.clone();
@@ -469,7 +523,7 @@ impl Evaluator {
             Value::String(s) => s.clone(),
             Value::Class(class) => {
                 let class_info = self.class_table.get(*class);
-                format!("{}", class_info.name)
+                class_info.name.to_string()
             }
             Value::Instance(instance) => {
                 let info = self.instance_table.get(*instance);

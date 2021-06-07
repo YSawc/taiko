@@ -8,3 +8,5 @@ edition = "2018"
 
 [dependencies]
 rustc-hash = "1.1.0"
+rustyline = "8.2.0"
+clap = "3.0.0-beta.2"

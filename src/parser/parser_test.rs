@@ -1,28 +1,24 @@
 #[cfg(test)]
 mod test {
     use crate::eval::eval::*;
-    use crate::lexer::lexer::*;
     use crate::parser::parser::*;
     use crate::util::annot::*;
     use crate::value::value::*;
 
     fn parse_expected_error(script: impl Into<String>, expected: ParseError) {
-        let lexer = Lexer::new(script);
-        let result = lexer.tokenize().unwrap();
-        let mut parser = Parser::new(result);
-        let res = parser.parse_program().unwrap_err();
+        let mut parser = Parser::new();
+        let res = parser.parse_program(script.into()).unwrap_err();
         if res != expected.clone() {
             panic!("Expected:{:?} Got:{:?}", expected, res);
         }
     }
 
     fn eval_script(script: impl Into<String>, expected: Value) {
-        let lexer = Lexer::new(script);
-        let result = lexer.tokenize().unwrap();
-        let mut parser = Parser::new(result);
-        let node = parser.parse_comp_stmt().unwrap();
-        let mut eval = Evaluator::new(parser.source_info, parser.ident_table);
-        let res = eval.eval_node(&node);
+        let mut parser = Parser::new();
+        let node = parser.parse_program(script.into()).unwrap();
+        let mut eval = Evaluator::new();
+        eval.init(parser.lexer.source_info, parser.ident_table);
+        let res = eval.eval_node(&node).unwrap();
         if res != expected {
             panic!("Expected:{:?} Got:{:?}", expected, res);
         }

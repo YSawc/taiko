@@ -8,9 +8,9 @@ pub struct SourceInfo {
 }
 
 impl SourceInfo {
-    pub fn new(code_text: impl Into<String>) -> SourceInfo {
+    pub fn new() -> SourceInfo {
         SourceInfo {
-            code: code_text.into().chars().collect::<Vec<char>>(),
+            code: vec![],
             coordinates: vec![],
         }
     }

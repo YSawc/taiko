@@ -1,12 +1,15 @@
+use crate::eval::eval::*;
 use crate::node::node::*;
 use crate::util::util::*;
 use rustc_hash::FxHashMap;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct ClassInfo {
     pub id: IdentId,
     pub name: String,
     pub body: Box<Node>,
+    pub instance_method_table: MethodTable,
+    pub class_method_table: MethodTable,
     pub subclass: FxHashMap<IdentId, ClassRef>,
 }
 
@@ -16,8 +19,14 @@ impl ClassInfo {
             id,
             name,
             body: Box::new(body),
+            instance_method_table: FxHashMap::default(),
+            class_method_table: FxHashMap::default(),
             subclass: FxHashMap::default(),
         }
+    }
+
+    pub fn add_class_method(&mut self, id: IdentId, info: MethodInfo) -> Option<MethodInfo> {
+        self.class_method_table.insert(id, info)
     }
 }
 
@@ -30,7 +39,7 @@ impl std::hash::Hash for ClassRef {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct GlobalClassTable {
     table: FxHashMap<ClassRef, ClassInfo>,
     class_id: usize,

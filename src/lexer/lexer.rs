@@ -3,9 +3,9 @@ use crate::util::annot::*;
 use crate::util::util::*;
 use rustc_hash::FxHashMap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Lexer {
-    source_info: SourceInfo,
+    pub source_info: SourceInfo,
     len: usize,
     line_start_pos: usize,
     token_start_pos: usize,
@@ -17,16 +17,12 @@ pub struct Lexer {
 
 #[derive(Debug, Clone)]
 pub struct LexerResult {
-    pub source_info: SourceInfo,
     pub tokens: Vec<Token>,
 }
 
 impl LexerResult {
-    fn new(tokens: Vec<Token>, lexer: Lexer) -> Self {
-        LexerResult {
-            source_info: lexer.source_info,
-            tokens,
-        }
+    fn new(tokens: Vec<Token>) -> Self {
+        LexerResult { tokens }
     }
 }
 
@@ -39,7 +35,7 @@ pub enum Error {
 }
 
 impl Lexer {
-    pub fn new(code_text: impl Into<String>) -> Self {
+    pub fn new() -> Self {
         let mut reserved = FxHashMap::default();
         macro_rules! reg_reserved {
             ( $($id:expr => $variant:path),+ ) => {
@@ -70,7 +66,7 @@ impl Lexer {
             "true" => Reserved::True
         };
 
-        let source_info = SourceInfo::new(code_text);
+        let source_info = SourceInfo::new();
         let len = source_info.code.len();
 
         Lexer {
@@ -386,7 +382,26 @@ impl Lexer {
         *self.source_info.coordinates.last().unwrap()
     }
 
-    pub fn tokenize(mut self) -> Result<LexerResult, Error> {
+    pub fn tokenize(&mut self, code_text: impl Into<String>) -> Result<LexerResult, Error> {
+        let mut code = code_text.into().chars().collect::<Vec<char>>();
+        let pop_flag = match self.source_info.coordinates.last() {
+            None => false,
+            Some(info) => {
+                let next_pos = self.source_info.code.len();
+                self.line_start_pos = next_pos;
+                self.token_start_pos = next_pos;
+                self.relative_column_pos = next_pos;
+                self.absolute_column_pos = next_pos;
+                self.line_pos = info.2;
+                true
+            }
+        };
+        if pop_flag {
+            self.source_info.coordinates.pop();
+        }
+
+        self.source_info.code.append(&mut code);
+        self.len = self.source_info.code.len();
         let mut tokens: Vec<Token> = vec![];
         loop {
             while let Some(tok) = self.skip_whitespace()? {
@@ -423,7 +438,7 @@ impl Lexer {
             };
             tokens.push(token);
         }
-        Ok(LexerResult::new(tokens, self))
+        Ok(LexerResult::new(tokens))
     }
 }
 
