@@ -113,7 +113,8 @@ impl Evaluator {
             "new" => Evaluator::builtin_new,
             "to_i" => Evaluator::builtin_to_i,
             "to_s" => Evaluator::builtin_to_s,
-            "assert" => Evaluator::builtin_assert
+            "assert" => Evaluator::builtin_assert,
+            "class" => Evaluator::builtin_class
         }
     }
 
@@ -160,6 +161,11 @@ impl Evaluator {
         } else {
             unimplemented!()
         }
+    }
+
+    pub fn builtin_class(eval: &mut Evaluator, receiver: Value, _args: Vec<Value>) -> Value {
+        let class = eval.val_to_class(&receiver);
+        Value::SelfClass(class)
     }
 }
 
@@ -529,6 +535,9 @@ impl Evaluator {
                 let info = self.instance_table.get(*instance);
                 format!("#<{}:{:?}>", info.class_name, instance)
             }
+            Value::SelfClass(c) => {
+                format!("{:?}", c)
+            }
         }
     }
 
@@ -538,6 +547,19 @@ impl Evaluator {
                 Ok(i) => i,
                 _ => unimplemented!(),
             },
+            _ => unimplemented!(),
+        }
+    }
+
+    pub fn val_to_class(&mut self, val: &Value) -> Class {
+        match val {
+            Value::Nil => Class::Nil,
+            Value::Bool(_) => Class::Bool,
+            Value::FixNum(_) => Class::FixNum,
+            Value::FixDecimalNum(_) => Class::FixDecimalNum,
+            Value::String(_) => Class::String,
+            Value::Class(_) => Class::Class,
+            Value::Instance(_) => Class::Instance,
             _ => unimplemented!(),
         }
     }

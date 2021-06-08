@@ -79,3 +79,14 @@ impl GlobalClassTable {
             .unwrap_or_else(|| panic!("ClobalClassTable#get_mut(): ClassRef is not valid."))
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Class {
+    Nil,
+    Bool,
+    FixNum,
+    FixDecimalNum,
+    String,
+    Class,
+    Instance,
+}

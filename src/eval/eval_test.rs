@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod test {
+    use crate::class::class::*;
     use crate::eval::eval::*;
     use crate::instance::instance::*;
     use crate::parser::parser::*;
@@ -218,6 +219,17 @@ mod test {
             34.to_s
         ";
         let expected = Value::String("34".to_string());
+        eval_script(program, expected);
+    }
+
+    #[test]
+    fn self_class1() {
+        let program = "
+            class Bar
+            end
+            Bar.class
+        ";
+        let expected = Value::SelfClass(Class::Class);
         eval_script(program, expected);
     }
 }

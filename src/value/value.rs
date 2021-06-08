@@ -10,4 +10,5 @@ pub enum Value {
     String(String),
     Class(ClassRef),
     Instance(InstanceRef),
+    SelfClass(Class),
 }

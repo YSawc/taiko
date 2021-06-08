@@ -499,6 +499,18 @@ impl Parser {
                                 loc.merge(self.loc()),
                             )
                         }
+                        TokenKind::Reserved(Reserved::Class) => {
+                            let method = "class".to_string();
+                            let id = self.ident_table.get_ident_id(&method);
+                            let args = vec![];
+
+                            Node::new_send(
+                                node,
+                                Node::new_identifier(id, tok.loc()),
+                                args,
+                                loc.merge(self.loc()),
+                            )
+                        }
                         _ => panic!("method name must be an identifer."),
                     }
                 }
