@@ -232,4 +232,15 @@ mod test {
         let expected = Value::SelfClass(Class::Class);
         eval_script(program, expected);
     }
+
+    #[test]
+    fn times1() {
+        let program = "
+            3.times do
+              puts('hello')
+            end
+        ";
+        let expected = Value::Nil;
+        eval_script(program, expected);
+    }
 }

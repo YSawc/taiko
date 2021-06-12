@@ -22,7 +22,6 @@ enum Literal {
     Number,
 }
 
-#[allow(unused)]
 #[derive(Debug, Clone, PartialEq)]
 enum BlockContext {
     Class,
@@ -35,6 +34,21 @@ enum LineContext {
     Literal(Literal),
     Class,
     Method,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParsedArgs {
+    pub node: Node,
+    pub args: Vec<Node>,
+}
+
+impl ParsedArgs {
+    pub fn new() -> Self {
+        Self {
+            node: Node::new_none(),
+            args: vec![],
+        }
+    }
 }
 
 impl Parser {
@@ -459,7 +473,8 @@ impl Parser {
         let tok = self.peek_no_skip_line_term();
         if tok.kind == TokenKind::Punct(Punct::LParen) {
             self.get();
-            let args = self.parse_parenthesize_args()?;
+            let mut args = ParsedArgs::new();
+            args.args = self.parse_parenthesize_args()?;
             let end_loc = self.loc();
 
             return Ok(Node::new_send(
@@ -478,19 +493,40 @@ impl Parser {
                     match &tok.kind {
                         TokenKind::Ident(s) => {
                             let method = s;
+                            let mut args = ParsedArgs::new();
                             let id = self.ident_table.get_ident_id(method);
-                            let mut args = vec![];
-                            if self.peek_no_skip_line_term().kind == TokenKind::Punct(Punct::LParen)
-                            {
-                                self.get();
-                                args = self.parse_parenthesize_args()?;
+                            self.skip_space();
+                            match self.peek_no_skip_line_term().kind {
+                                TokenKind::Punct(Punct::LParen) => {
+                                    self.get();
+                                    let param_args = self.parse_parenthesize_args()?;
+                                    args.args = param_args;
+
+                                    Node::new_send(
+                                        node,
+                                        Node::new_identifier(id, tok.loc()),
+                                        args,
+                                        loc.merge(self.loc()),
+                                    )
+                                }
+                                TokenKind::Reserved(Reserved::Do) => {
+                                    self.get();
+                                    args.node = self.parse_do()?;
+
+                                    Node::new_send(
+                                        node,
+                                        Node::new_identifier(id, tok.loc()),
+                                        args,
+                                        loc.merge(self.loc()),
+                                    )
+                                }
+                                _ => Node::new_send(
+                                    node,
+                                    Node::new_identifier(id, tok.loc()),
+                                    args,
+                                    loc.merge(self.loc()),
+                                ),
                             }
-                            Node::new_send(
-                                node,
-                                Node::new_identifier(id, tok.loc()),
-                                args,
-                                loc.merge(self.loc()),
-                            )
                         }
                         TokenKind::NumLit(i) => {
                             let receive_i = node.pick_number();
@@ -502,7 +538,7 @@ impl Parser {
                         TokenKind::Reserved(Reserved::Class) => {
                             let method = "class".to_string();
                             let id = self.ident_table.get_ident_id(&method);
-                            let args = vec![];
+                            let args = ParsedArgs::new();
 
                             Node::new_send(
                                 node,
@@ -544,9 +580,10 @@ impl Parser {
             TokenKind::Ident(name) => {
                 let id = self.ident_table.get_ident_id(name);
                 if name == "self" {
-                    return Ok(Node::new(NodeKind::SelfValue, loc));
-                };
-                return Ok(Node::new_identifier(id, loc));
+                    Ok(Node::new(NodeKind::SelfValue, loc))
+                } else {
+                    Ok(Node::new_identifier(id, loc))
+                }
             }
             TokenKind::Const(name) => {
                 let id = self.ident_table.get_ident_id(name);
@@ -574,6 +611,10 @@ impl Parser {
             }
             TokenKind::Reserved(Reserved::Def) => {
                 let node = self.parse_def()?;
+                Ok(node)
+            }
+            TokenKind::Reserved(Reserved::Do) => {
+                let node = self.parse_do()?;
                 Ok(node)
             }
             TokenKind::Reserved(Reserved::Class) => {
@@ -629,6 +670,16 @@ impl Parser {
         self.reset_line_context();
 
         Ok(Node::new_method_decl(id, args, body))
+    }
+
+    fn parse_do(&mut self) -> Result<Node, ParseError> {
+        self.block_context_stack.push(BlockContext::Method);
+        let body = self.parse_comp_stmt()?;
+        self.expect_reserved(Reserved::End)?;
+        self.block_context_stack.pop().unwrap();
+        self.reset_line_context();
+
+        Ok(Node::new_block_decl(body))
     }
 
     pub fn parse_params(&mut self) -> Result<Vec<Node>, ParseError> {

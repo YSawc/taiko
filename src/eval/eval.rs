@@ -1,3 +1,4 @@
+use crate::args::args::*;
 use crate::class::class::*;
 use crate::instance::instance::*;
 use crate::node::node::*;
@@ -19,7 +20,7 @@ pub struct Evaluator {
 }
 
 type ValueTable = FxHashMap<IdentId, Value>;
-type BuiltinFunc = fn(eval: &mut Evaluator, receiver: Value, args: Vec<Value>) -> Value;
+type BuiltinFunc = fn(eval: &mut Evaluator, receiver: Value, args: Args) -> Value;
 
 #[derive(Clone)]
 pub enum MethodInfo {
@@ -114,7 +115,8 @@ impl Evaluator {
             "to_i" => Evaluator::builtin_to_i,
             "to_s" => Evaluator::builtin_to_s,
             "assert" => Evaluator::builtin_assert,
-            "class" => Evaluator::builtin_class
+            "class" => Evaluator::builtin_class,
+            "times" => Evaluator::builtin_times
         }
     }
 
@@ -124,14 +126,15 @@ impl Evaluator {
         self.class_stack.push(classref);
     }
 
-    pub fn builtin_puts(eval: &mut Evaluator, _receiver: Value, args: Vec<Value>) -> Value {
+    pub fn builtin_puts(eval: &mut Evaluator, _receiver: Value, args: Args) -> Value {
+        let args = args.value;
         for arg in args {
             println!("{}", eval.val_to_s(&arg));
         }
         Value::Nil
     }
 
-    pub fn builtin_new(eval: &mut Evaluator, receiver: Value, _args: Vec<Value>) -> Value {
+    pub fn builtin_new(eval: &mut Evaluator, receiver: Value, _args: Args) -> Value {
         match receiver {
             Value::Class(class_ref) => {
                 let instance = eval.new_instance(class_ref);
@@ -140,17 +143,18 @@ impl Evaluator {
             _ => unimplemented!(),
         }
     }
-    pub fn builtin_to_i(eval: &mut Evaluator, receiver: Value, _args: Vec<Value>) -> Value {
+    pub fn builtin_to_i(eval: &mut Evaluator, receiver: Value, _args: Args) -> Value {
         let i = eval.val_to_i(&receiver);
         Value::FixNum(i)
     }
 
-    pub fn builtin_to_s(eval: &mut Evaluator, receiver: Value, _args: Vec<Value>) -> Value {
+    pub fn builtin_to_s(eval: &mut Evaluator, receiver: Value, _args: Args) -> Value {
         let s = eval.val_to_s(&receiver);
         Value::String(s)
     }
 
-    pub fn builtin_assert(eval: &mut Evaluator, _receiver: Value, args: Vec<Value>) -> Value {
+    pub fn builtin_assert(eval: &mut Evaluator, _receiver: Value, args: Args) -> Value {
+        let args = args.value;
         if args.len() != 2 {
             unimplemented!();
         };
@@ -163,9 +167,24 @@ impl Evaluator {
         }
     }
 
-    pub fn builtin_class(eval: &mut Evaluator, receiver: Value, _args: Vec<Value>) -> Value {
+    pub fn builtin_class(eval: &mut Evaluator, receiver: Value, _args: Args) -> Value {
         let class = eval.val_to_class(&receiver);
         Value::SelfClass(class)
+    }
+
+    pub fn builtin_times(eval: &mut Evaluator, receiver: Value, args: Args) -> Value {
+        let args = args.node;
+        match receiver {
+            Value::FixNum(n) => {
+                for _ in 0..n {
+                    eval.eval_node(&args).unwrap_or_else(|err| {
+                        panic!("Builtin#times: error occured while eval_node. {:?};", err)
+                    });
+                }
+            }
+            _ => unimplemented!(),
+        }
+        Value::Nil
     }
 }
 
@@ -336,14 +355,19 @@ impl Evaluator {
                 self.scope_stack.pop();
                 Ok(Value::Nil)
             }
+            NodeKind::BlockDecl(body) => self.eval_node(&body),
             NodeKind::Send(receiver, method, args) => {
                 let id = match method.kind {
                     NodeKind::Ident(id) => id,
                     _ => unimplemented!("method must be identifer."),
                 };
                 let receiver = self.eval_node(receiver)?;
-                let args_val: Vec<Value> =
-                    args.iter().map(|x| self.eval_node(&x).unwrap()).collect();
+                let args_val: Vec<Value> = args
+                    .args
+                    .iter()
+                    .map(|x| self.eval_node(&x).unwrap())
+                    .collect();
+
                 let info = match self.method_table.get(&id) {
                     Some(info) => info.clone(),
                     None => unimplemented!("undefined function."),
@@ -354,7 +378,7 @@ impl Evaluator {
                         body,
                         local_scope,
                     } => {
-                        let args_len = args.len();
+                        let args_value_len = args.args.len();
                         self.scope_stack.push(local_scope);
                         for (i, param) in params.iter().enumerate() {
                             if let Node {
@@ -362,7 +386,7 @@ impl Evaluator {
                                 ..
                             } = param.clone()
                             {
-                                let arg = if args_len > i {
+                                let arg = if args_value_len > i {
                                     args_val[i].clone()
                                 } else {
                                     Value::Nil
@@ -376,7 +400,14 @@ impl Evaluator {
                         self.scope_stack.pop();
                         val
                     }
-                    MethodInfo::BuiltinFunc { func, .. } => Ok(func(self, receiver, args_val)),
+                    MethodInfo::BuiltinFunc { func, .. } => {
+                        let body = &args.node;
+                        let args = Args {
+                            node: body.to_owned(),
+                            value: args_val,
+                        };
+                        Ok(func(self, receiver, args))
+                    }
                 }
             }
             _ => unimplemented!("{:?}", node.kind),

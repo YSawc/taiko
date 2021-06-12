@@ -1,8 +1,10 @@
+use crate::parser::parser::*;
 use crate::util::annot::*;
 use crate::util::util::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeKind {
+    None,
     SelfValue,
     Number(i64),
     DecimalNumber(f64),
@@ -20,7 +22,8 @@ pub enum NodeKind {
     Param(IdentId),
     FuncDecl(IdentId, NodeVec, Box<Node>),
     ClassDecl(IdentId, Box<Node>),
-    Send(Box<Node>, Box<Node>, NodeVec),
+    BlockDecl(Box<Node>),
+    Send(Box<Node>, Box<Node>, Box<ParsedArgs>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -47,11 +50,12 @@ impl std::fmt::Display for Node {
         match &self.kind {
             NodeKind::BinOp(op, lhs, rhs) => write!(f, "[{:?} ( {}, {}  )]", op, lhs, rhs),
             NodeKind::Ident(id) => write!(f, "(LocalVar {:?})", id),
-            NodeKind::Send(receiver, method_name, nodes) => {
+            NodeKind::Send(receiver, method_name, args) => {
                 write!(f, "[ Send [{}]: [{}] ", receiver, method_name)?;
-                for node in nodes {
-                    write!(f, "({})", node)?;
+                for node in &args.args {
+                    write!(f, "({:?})", node)?;
                 }
+                write!(f, "{}", args.node)?;
                 write!(f, "]")?;
                 Ok(())
             }
@@ -74,12 +78,18 @@ impl std::fmt::Display for Node {
             NodeKind::If(cond_, then_, else_) => {
                 write!(f, "[ If COND({}) THEN({}) ELSE({}) ]", cond_, then_, else_)
             }
+            NodeKind::BlockDecl(body) => {
+                write!(f, "[{}]", body)
+            }
             _ => write!(f, "[{:?}]", self.kind),
         }
     }
 }
-
 impl Node {
+    pub fn new_none() -> Self {
+        Node::new(NodeKind::None, Loc(0, 0))
+    }
+
     pub fn new_number(num: i64, loc: Loc) -> Self {
         Node::new(NodeKind::Number(num), loc)
     }
@@ -122,13 +132,18 @@ impl Node {
         Node::new(NodeKind::ClassDecl(id, Box::new(body)), loc)
     }
 
+    pub fn new_block_decl(body: Node) -> Self {
+        let loc = Loc::new(body.loc());
+        Node::new(NodeKind::BlockDecl(Box::new(body)), loc)
+    }
+
     pub fn new_const(id: IdentId, loc: Loc) -> Self {
         Node::new(NodeKind::Const(id), loc)
     }
 
-    pub fn new_send(receiver: Node, method_name: Node, args: Vec<Node>, loc: Loc) -> Self {
+    pub fn new_send(receiver: Node, method_name: Node, args: ParsedArgs, loc: Loc) -> Self {
         Node::new(
-            NodeKind::Send(Box::new(receiver), Box::new(method_name), args),
+            NodeKind::Send(Box::new(receiver), Box::new(method_name), Box::new(args)),
             loc,
         )
     }
