@@ -24,6 +24,7 @@ pub enum NodeKind {
     ClassDecl(IdentId, Box<Node>),
     BlockDecl(Box<Node>),
     Send(Box<Node>, Box<Node>, Box<ParsedArgs>),
+    Table(Box<Node>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -146,6 +147,11 @@ impl Node {
             NodeKind::Send(Box::new(receiver), Box::new(method_name), Box::new(args)),
             loc,
         )
+    }
+
+    pub fn new_table(table: Node) -> Self {
+        let loc = Loc::new(table.loc());
+        Node::new(NodeKind::Table(Box::new(table)), loc)
     }
 }
 

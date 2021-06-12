@@ -243,4 +243,15 @@ mod test {
         let expected = Value::Nil;
         eval_script(program, expected);
     }
+
+    #[test]
+    fn times2() {
+        let program = "
+            3.times do |n|
+              puts(n)
+            end
+        ";
+        let expected = Value::Nil;
+        eval_script(program, expected);
+    }
 }

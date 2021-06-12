@@ -5,6 +5,7 @@ use crate::value::value::*;
 pub struct Args {
     pub node: Node,
     pub value: Vec<Value>,
+    pub table: Node,
 }
 
 impl Args {
@@ -12,6 +13,7 @@ impl Args {
         Self {
             node: Node::new_none(),
             value: vec![],
+            table: Node::new_none(),
         }
     }
 }

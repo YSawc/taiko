@@ -38,6 +38,7 @@ enum LineContext {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParsedArgs {
+    pub table: Node,
     pub node: Node,
     pub args: Vec<Node>,
 }
@@ -45,6 +46,7 @@ pub struct ParsedArgs {
 impl ParsedArgs {
     pub fn new() -> Self {
         Self {
+            table: Node::new_none(),
             node: Node::new_none(),
             args: vec![],
         }
@@ -209,6 +211,21 @@ impl Parser {
         match &tok.kind {
             TokenKind::Reserved(reserved) => {
                 if *reserved == expect {
+                    Ok(())
+                } else {
+                    Err(self.error_unexpected(loc))
+                }
+            }
+            _ => Err(self.error_unexpected(loc)),
+        }
+    }
+
+    fn expect_punct(&mut self, expect: Punct) -> Result<(), ParseError> {
+        let tok = self.get().clone();
+        let loc = self.loc();
+        match &tok.kind {
+            TokenKind::Punct(punct) => {
+                if *punct == expect {
                     Ok(())
                 } else {
                     Err(self.error_unexpected(loc))
@@ -511,7 +528,11 @@ impl Parser {
                                 }
                                 TokenKind::Reserved(Reserved::Do) => {
                                     self.get();
-                                    args.node = self.parse_do()?;
+                                    self.skip_space();
+
+                                    let (args_node, args_table) = self.parse_do()?;
+                                    args.node = args_node;
+                                    args.table = args_table.clone();
 
                                     Node::new_send(
                                         node,
@@ -614,7 +635,7 @@ impl Parser {
                 Ok(node)
             }
             TokenKind::Reserved(Reserved::Do) => {
-                let node = self.parse_do()?;
+                let (node, _) = self.parse_do()?;
                 Ok(node)
             }
             TokenKind::Reserved(Reserved::Class) => {
@@ -672,14 +693,24 @@ impl Parser {
         Ok(Node::new_method_decl(id, args, body))
     }
 
-    fn parse_do(&mut self) -> Result<Node, ParseError> {
+    fn parse_do(&mut self) -> Result<(Node, Node), ParseError> {
+        let table = match self.peek_no_skip_line_term().kind {
+            TokenKind::Punct(Punct::Pipe) => {
+                self.get();
+                let node = self.parse_ident()?;
+                self.expect_punct(Punct::Pipe)?;
+                node
+            }
+            _ => Node::new_none(),
+        };
+
         self.block_context_stack.push(BlockContext::Method);
         let body = self.parse_comp_stmt()?;
         self.expect_reserved(Reserved::End)?;
         self.block_context_stack.pop().unwrap();
         self.reset_line_context();
 
-        Ok(Node::new_block_decl(body))
+        Ok((Node::new_block_decl(body), table))
     }
 
     pub fn parse_params(&mut self) -> Result<Vec<Node>, ParseError> {
@@ -709,6 +740,18 @@ impl Parser {
         } else {
             let tok = self.peek().1;
             Err(self.error_unexpected(tok))
+        }
+    }
+
+    pub fn parse_ident(&mut self) -> Result<Node, ParseError> {
+        let tok = self.get().clone();
+        let loc = tok.loc();
+        match &tok.kind {
+            TokenKind::Ident(name) => {
+                let id = self.ident_table.get_ident_id(name);
+                Ok(Node::new_identifier(id, tok.loc()))
+            }
+            _ => Err(self.error_unexpected(loc)),
         }
     }
 

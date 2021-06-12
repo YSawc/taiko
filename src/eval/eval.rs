@@ -126,60 +126,69 @@ impl Evaluator {
         self.class_stack.push(classref);
     }
 
-    pub fn builtin_puts(eval: &mut Evaluator, _receiver: Value, args: Args) -> Value {
+    pub fn builtin_puts(&mut self, _receiver: Value, args: Args) -> Value {
         let args = args.value;
         for arg in args {
-            println!("{}", eval.val_to_s(&arg));
+            println!("{}", self.val_to_s(&arg));
         }
         Value::Nil
     }
 
-    pub fn builtin_new(eval: &mut Evaluator, receiver: Value, _args: Args) -> Value {
+    pub fn builtin_new(&mut self, receiver: Value, _args: Args) -> Value {
         match receiver {
             Value::Class(class_ref) => {
-                let instance = eval.new_instance(class_ref);
+                let instance = self.new_instance(class_ref);
                 Value::Instance(instance)
             }
             _ => unimplemented!(),
         }
     }
-    pub fn builtin_to_i(eval: &mut Evaluator, receiver: Value, _args: Args) -> Value {
-        let i = eval.val_to_i(&receiver);
+    pub fn builtin_to_i(&mut self, receiver: Value, _args: Args) -> Value {
+        let i = self.val_to_i(&receiver);
         Value::FixNum(i)
     }
 
-    pub fn builtin_to_s(eval: &mut Evaluator, receiver: Value, _args: Args) -> Value {
-        let s = eval.val_to_s(&receiver);
+    pub fn builtin_to_s(&mut self, receiver: Value, _args: Args) -> Value {
+        let s = self.val_to_s(&receiver);
         Value::String(s)
     }
 
-    pub fn builtin_assert(eval: &mut Evaluator, _receiver: Value, args: Args) -> Value {
+    pub fn builtin_assert(&mut self, _receiver: Value, args: Args) -> Value {
         let args = args.value;
         if args.len() != 2 {
             unimplemented!();
         };
-        if eval.val_to_bool(&args[0]) {
+        if self.val_to_bool(&args[0]) {
             Value::Nil
-        } else if !eval.val_to_bool(&args[0]) {
-            panic!("assertion fail!\n{:?}", eval.val_to_s(&args[1]))
+        } else if !self.val_to_bool(&args[0]) {
+            panic!("assertion fail!\n{:?}", self.val_to_s(&args[1]))
         } else {
             unimplemented!()
         }
     }
 
-    pub fn builtin_class(eval: &mut Evaluator, receiver: Value, _args: Args) -> Value {
-        let class = eval.val_to_class(&receiver);
+    pub fn builtin_class(&mut self, receiver: Value, _args: Args) -> Value {
+        let class = self.val_to_class(&receiver);
         Value::SelfClass(class)
     }
 
-    pub fn builtin_times(eval: &mut Evaluator, receiver: Value, args: Args) -> Value {
-        let args = args.node;
+    pub fn builtin_times(&mut self, receiver: Value, args: Args) -> Value {
         match receiver {
             Value::FixNum(n) => {
-                for _ in 0..n {
-                    eval.eval_node(&args).unwrap_or_else(|err| {
+                for i in 0..n {
+                    self.new_propagated_local_var_stack();
+                    match args.table.kind {
+                        NodeKind::Ident(id) => {
+                            let imm_value = Value::FixNum(i);
+                            self.lvar_table().insert(id, imm_value);
+                        }
+                        _ => (),
+                    };
+
+                    self.eval_node(&args.node).unwrap_or_else(|err| {
                         panic!("Builtin#times: error occured while eval_node. {:?};", err)
                     });
+                    self.scope_stack.pop();
                 }
             }
             _ => unimplemented!(),
@@ -220,6 +229,7 @@ impl Evaluator {
     }
 
     pub fn eval_node(&mut self, node: &Node) -> EvalResult {
+        // println!("{:?}", node.kind);
         match &node.kind {
             NodeKind::Number(num) => Ok(Value::FixNum(*num)),
             NodeKind::DecimalNumber(decimal_num) => Ok(Value::FixDecimalNum(*decimal_num)),
@@ -401,10 +411,12 @@ impl Evaluator {
                         val
                     }
                     MethodInfo::BuiltinFunc { func, .. } => {
-                        let body = &args.node;
+                        let node = &args.node;
+                        let table = &args.table;
                         let args = Args {
-                            node: body.to_owned(),
+                            node: node.to_owned(),
                             value: args_val,
+                            table: table.to_owned(),
                         };
                         Ok(func(self, receiver, args))
                     }
