@@ -254,4 +254,17 @@ mod test {
         let expected = Value::Nil;
         eval_script(program, expected);
     }
+
+    #[test]
+    fn times3() {
+        let program = "
+            a = 0
+            255.times do |n|
+              a = a + n
+            end
+            a
+        ";
+        let expected = Value::FixNum(32385);
+        eval_script(program, expected);
+    }
 }

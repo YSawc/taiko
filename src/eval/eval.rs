@@ -51,12 +51,14 @@ pub type MethodTable = FxHashMap<IdentId, MethodInfo>;
 #[derive(Debug, Clone, PartialEq)]
 pub struct LocalScope {
     lvar_table: ValueTable,
+    propagated_table: ValueTable,
 }
 
 impl LocalScope {
     pub fn new() -> Self {
         LocalScope {
             lvar_table: FxHashMap::default(),
+            propagated_table: FxHashMap::default(),
         }
     }
 }
@@ -188,7 +190,13 @@ impl Evaluator {
                     self.eval_node(&args.node).unwrap_or_else(|err| {
                         panic!("Builtin#times: error occured while eval_node. {:?};", err)
                     });
+                    let local_scope = self.local_scope().clone();
                     self.scope_stack.pop();
+                    for (id, n) in local_scope.lvar_table.into_iter() {
+                        if self.local_scope().lvar_table.contains_key(&id) {
+                            *self.local_scope().lvar_table.get_mut(&id).unwrap() = n;
+                        }
+                    }
                 }
             }
             _ => unimplemented!(),
@@ -202,13 +210,18 @@ impl Evaluator {
         &mut self.scope_stack.last_mut().unwrap().lvar_table
     }
 
+    pub fn local_scope(&mut self) -> &mut LocalScope {
+        self.scope_stack.last_mut().unwrap()
+    }
+
     fn new_class_info(&mut self, id: IdentId, body: Node) -> ClassRef {
         let name = self.ident_table.get_name(id).clone();
         self.class_table.new_class(id, name, body)
     }
 
     fn new_propagated_local_var_stack(&mut self) {
-        let last_scope_stack = self.scope_stack.last().unwrap().to_owned();
+        let mut last_scope_stack = self.scope_stack.last().unwrap().to_owned();
+        last_scope_stack.propagated_table = last_scope_stack.clone().lvar_table;
         self.scope_stack.push(last_scope_stack);
     }
 
