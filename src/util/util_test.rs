@@ -4,7 +4,7 @@ mod test {
 
     fn eval_script(script: impl Into<String>, expected: Vec<(usize, usize, usize)>) {
         let mut parser = Parser::new();
-        parser.parse_program(script.into());
+        parser.parse_program(script.into()).unwrap();
         let coordinates = parser.lexer.source_info.coordinates;
         if coordinates != expected {
             panic!("Expected:{:?} Got:{:?}", expected, coordinates);
@@ -13,8 +13,20 @@ mod test {
 
     #[test]
     fn coordinates1() {
-        let prog = "\na  = 0;\nbb=3;\n# comment line\n c = 3;# comment_line";
-        let expected = vec![(0, 0, 0), (1, 8, 1), (9, 14, 2), (15, 29, 3), (30, 51, 4)];
+        let prog = "
+a  = 0
+bb=3
+# comment line
+c = 3
+# comment_line";
+        let expected = vec![
+            (0, 0, 0),
+            (1, 7, 1),
+            (8, 12, 2),
+            (13, 27, 3),
+            (28, 33, 4),
+            (34, 48, 5),
+        ];
         eval_script(prog, expected);
     }
 }

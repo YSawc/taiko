@@ -140,7 +140,7 @@ impl Parser {
                 return token;
             }
             self.cursor += 1;
-            if !token.is_line_term() && !token.is_space() {
+            if !token.is_line_term() && !token.is_space() && !token.is_comment() {
                 return token;
             } else if token.is_line_term() {
                 self.reset_line_context();
