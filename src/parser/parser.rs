@@ -598,6 +598,17 @@ impl Parser {
         let tok = self.get().clone();
         let loc = tok.loc();
         match &tok.kind {
+            TokenKind::Punct(Punct::At) => {
+                let tok = self.get().clone();
+                let loc = tok.loc();
+                match &tok.kind {
+                    TokenKind::Ident(name) => {
+                        let id = self.ident_table.get_ident_id(name);
+                        Ok(Node::new_identifier(id, loc))
+                    }
+                    _ => unimplemented!(),
+                }
+            }
             TokenKind::Ident(name) => {
                 let id = self.ident_table.get_ident_id(name);
                 if name == "self" {

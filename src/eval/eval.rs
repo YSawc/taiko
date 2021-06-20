@@ -17,6 +17,7 @@ pub struct Evaluator {
     pub const_table: ValueTable,
     pub class_stack: Vec<ClassRef>,
     pub scope_stack: Vec<LocalScope>,
+    pub global_stack: Vec<GlobalScope>,
 }
 
 type ValueTable = FxHashMap<IdentId, Value>;
@@ -56,9 +57,22 @@ pub struct LocalScope {
 
 impl LocalScope {
     pub fn new() -> Self {
-        LocalScope {
+        Self {
             lvar_table: FxHashMap::default(),
             propagated_table: FxHashMap::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GlobalScope {
+    gvar_table: ValueTable,
+}
+
+impl GlobalScope {
+    pub fn new() -> Self {
+        Self {
+            gvar_table: FxHashMap::default(),
         }
     }
 }
@@ -86,6 +100,7 @@ impl Evaluator {
             const_table: FxHashMap::default(),
             class_stack: vec![],
             scope_stack: vec![LocalScope::new()],
+            global_stack: vec![GlobalScope::new()],
         }
     }
 
@@ -328,7 +343,19 @@ impl Evaluator {
             }
             NodeKind::Assign(lhs, rhs) => match lhs.kind {
                 NodeKind::Ident(id) => {
-                    let rhs = self.eval_node(&rhs)?;
+                    let rhs = self.eval_node(&rhs.clone())?;
+                    match self.lvar_table().get_mut(&id) {
+                        Some(val) => {
+                            *val = rhs.clone();
+                        }
+                        None => {
+                            self.lvar_table().insert(id, rhs.clone());
+                        }
+                    }
+                    Ok(rhs)
+                }
+                NodeKind::GlobalIdent(id) => {
+                    let rhs = self.eval_node(&rhs.clone())?;
                     match self.lvar_table().get_mut(&id) {
                         Some(val) => {
                             *val = rhs.clone();

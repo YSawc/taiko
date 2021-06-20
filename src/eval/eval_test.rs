@@ -267,4 +267,20 @@ mod test {
         let expected = Value::FixNum(32385);
         eval_script(program, expected);
     }
+
+    #[test]
+    fn times4() {
+        let program = "
+            @g = 0
+            g = 0
+            24.times do |n|
+              g = g + n + @g
+              @g = g
+            end
+
+            @g
+        ";
+        let expected = Value::FixNum(16777191);
+        eval_script(program, expected);
+    }
 }

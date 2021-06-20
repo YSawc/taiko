@@ -245,7 +245,8 @@ impl Lexer {
             ":" => Punct::Colon,
             "," => Punct::Comma,
             "." => Punct::Dot,
-            "|" => Punct::Pipe
+            "|" => Punct::Pipe,
+            "@" => Punct::At
         }
 
         match punct.contains_key(&ch.to_string()) {

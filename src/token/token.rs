@@ -83,6 +83,7 @@ pub enum Punct {
     Comment,
     Dot,
     Pipe,
+    At,
 }
 
 pub type Token = Annot<TokenKind>;

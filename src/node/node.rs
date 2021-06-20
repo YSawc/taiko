@@ -18,6 +18,7 @@ pub enum NodeKind {
     CompStmt(Vec<Node>),
     If(Box<Node>, Box<Node>, Box<Node>),
     Ident(IdentId),
+    GlobalIdent(IdentId),
     Const(IdentId),
     Param(IdentId),
     FuncDecl(IdentId, NodeVec, Box<Node>),
@@ -51,6 +52,7 @@ impl std::fmt::Display for Node {
         match &self.kind {
             NodeKind::BinOp(op, lhs, rhs) => write!(f, "[{:?} ( {}, {}  )]", op, lhs, rhs),
             NodeKind::Ident(id) => write!(f, "(LocalVar {:?})", id),
+            NodeKind::GlobalIdent(id) => write!(f, "(GlobalVar {:?})", id),
             NodeKind::Send(receiver, method_name, args) => {
                 write!(f, "[ Send [{}]: [{}] ", receiver, method_name)?;
                 for node in &args.args {
@@ -115,6 +117,10 @@ impl Node {
 
     pub fn new_identifier(id: IdentId, loc: Loc) -> Self {
         Node::new(NodeKind::Ident(id), loc)
+    }
+
+    pub fn new_global_identifier(id: IdentId, loc: Loc) -> Self {
+        Node::new(NodeKind::GlobalIdent(id), loc)
     }
 
     pub fn new_assign(lhs: Node, rhs: Node) -> Self {
