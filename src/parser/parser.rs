@@ -500,6 +500,11 @@ impl Parser {
                 args,
                 loc.merge(end_loc),
             ));
+        } else if tok.kind == TokenKind::Punct(Punct::LBoxBrackets) {
+            self.get();
+            let contents = self.parse_box_brackets_contents()?;
+            let end_loc = self.loc();
+            return Ok(Node::new_vec(contents, loc.merge(end_loc)));
         };
         loop {
             let tok = self.peek_no_skip_line_term();
@@ -594,6 +599,24 @@ impl Parser {
         }
     }
 
+    fn parse_box_brackets_contents(&mut self) -> Result<Vec<Node>, ParseError> {
+        let mut args = vec![];
+        if self.get_if_punct(Punct::RBoxBrackets) {
+            return Ok(args);
+        }
+        loop {
+            args.push(self.parse_arg()?);
+            if !self.get_if_punct(Punct::Comma) {
+                break;
+            }
+        }
+        if self.get_if_punct(Punct::RBoxBrackets) {
+            Ok(args)
+        } else {
+            Err(self.error_unexpected(self.loc()))
+        }
+    }
+
     fn parse_primary(&mut self) -> Result<Node, ParseError> {
         let tok = self.get().clone();
         let loc = tok.loc();
@@ -635,6 +658,12 @@ impl Parser {
                 } else {
                     Err(self.error_unexpected(self.loc()))
                 }
+            }
+            TokenKind::Punct(Punct::LBoxBrackets) => {
+                let contents = self.parse_box_brackets_contents()?;
+                let end_loc = self.loc();
+                let node = Node::new_vec(contents, loc.merge(end_loc));
+                Ok(node)
             }
             TokenKind::Reserved(Reserved::If) => {
                 let node = self.parse_if_then()?;

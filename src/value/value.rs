@@ -11,4 +11,5 @@ pub enum Value {
     Class(ClassRef),
     Instance(InstanceRef),
     SelfClass(Class),
+    Array(Vec<Value>),
 }

@@ -241,6 +241,8 @@ impl Lexer {
             "/" => Punct::Div,
             "(" => Punct::LParen,
             ")" => Punct::RParen,
+            "[" => Punct::LBoxBrackets,
+            "]" => Punct::RBoxBrackets,
             ";" => Punct::Semi,
             ":" => Punct::Colon,
             "," => Punct::Comma,
@@ -262,10 +264,6 @@ impl Lexer {
                     }
                 }
                 '>' => {
-                    println!(
-                        "loc ch: {:?}",
-                        self.source_info.code[self.absolute_column_pos]
-                    );
                     let ch = self.peek()?;
                     if ch == '=' {
                         self.get()?;

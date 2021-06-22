@@ -26,6 +26,7 @@ pub enum NodeKind {
     BlockDecl(Box<Node>),
     Send(Box<Node>, Box<Node>, Box<ParsedArgs>),
     Table(Box<Node>),
+    Vec(Box<Vec<Node>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -153,6 +154,10 @@ impl Node {
             NodeKind::Send(Box::new(receiver), Box::new(method_name), Box::new(args)),
             loc,
         )
+    }
+
+    pub fn new_vec(contents: Vec<Node>, loc: Loc) -> Self {
+        Node::new(NodeKind::Vec(Box::new(contents)), loc)
     }
 
     pub fn new_table(table: Node) -> Self {

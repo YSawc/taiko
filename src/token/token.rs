@@ -68,6 +68,8 @@ pub enum Punct {
     Or,
     LParen,
     RParen,
+    LBoxBrackets,
+    RBoxBrackets,
     Semi,
     Colon,
     Comma,

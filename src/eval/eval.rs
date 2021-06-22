@@ -133,7 +133,8 @@ impl Evaluator {
             "to_s" => Evaluator::builtin_to_s,
             "assert" => Evaluator::builtin_assert,
             "class" => Evaluator::builtin_class,
-            "times" => Evaluator::builtin_times
+            "times" => Evaluator::builtin_times,
+            "len" => Evaluator::builtin_len
         }
     }
 
@@ -218,6 +219,16 @@ impl Evaluator {
         }
         Value::Nil
     }
+
+    pub fn builtin_len(&mut self, receiver: Value, _args: Args) -> Value {
+        match receiver {
+            Value::Array(contents) => {
+                let i = contents.len() as i64;
+                Value::FixNum(i)
+            }
+            _ => unimplemented!(),
+        }
+    }
 }
 
 impl Evaluator {
@@ -285,6 +296,13 @@ impl Evaluator {
                     panic!("NameError: uninitialized constant.");
                 }
             },
+            NodeKind::Vec(contents) => {
+                let contents: Vec<Value> = contents
+                    .iter()
+                    .map(|x| self.eval_node(x).unwrap())
+                    .collect();
+                Ok(Value::Array(contents))
+            }
             NodeKind::BinOp(op, lhs, rhs) => {
                 match op {
                     BinOp::LAnd => {
@@ -621,6 +639,7 @@ impl Evaluator {
             Value::SelfClass(c) => {
                 format!("{:?}", c)
             }
+            _ => unimplemented!(),
         }
     }
 

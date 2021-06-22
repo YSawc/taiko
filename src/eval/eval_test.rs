@@ -283,4 +283,13 @@ mod test {
         let expected = Value::FixNum(16777191);
         eval_script(program, expected);
     }
+
+    #[test]
+    fn len() {
+        let program = "
+            [1, 'string', 3, 4].len
+        ";
+        let expected = Value::FixNum(4);
+        eval_script(program, expected);
+    }
 }
