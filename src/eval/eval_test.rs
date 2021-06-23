@@ -292,4 +292,13 @@ mod test {
         let expected = Value::FixNum(4);
         eval_script(program, expected);
     }
+
+    #[test]
+    fn array_index() {
+        let program = "
+            [1, 'string', 3, 4][1]
+        ";
+        let expected = Value::String("string".to_string());
+        eval_script(program, expected);
+    }
 }

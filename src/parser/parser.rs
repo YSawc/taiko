@@ -20,6 +20,7 @@ pub struct Parser {
 enum Literal {
     String,
     Number,
+    Array,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -69,6 +70,19 @@ impl Parser {
                     error_loc,
                 ))
             }
+        }
+    }
+
+    fn expect_line_context_literal(
+        &mut self,
+        expected_context: LineContext,
+    ) -> Result<(), ParseError> {
+        let got_literal = self.line_context_stack.last().unwrap();
+        if *got_literal == expected_context {
+            self.line_context_stack.pop().unwrap();
+            Ok(())
+        } else {
+            panic!("expect {:?}, but god {:?}", expected_context, got_literal)
         }
     }
 
@@ -232,6 +246,14 @@ impl Parser {
                 }
             }
             _ => Err(self.error_unexpected(loc)),
+        }
+    }
+
+    fn expect_number(&mut self) -> Result<i64, ParseError> {
+        let tok = self.get();
+        match tok.kind {
+            TokenKind::NumLit(num) => Ok(num),
+            _ => panic!("expected number but god {:?}", tok),
         }
     }
 
@@ -501,10 +523,11 @@ impl Parser {
                 loc.merge(end_loc),
             ));
         } else if tok.kind == TokenKind::Punct(Punct::LBoxBrackets) {
-            self.get();
-            let contents = self.parse_box_brackets_contents()?;
+            self.expect_line_context_literal(LineContext::Literal(Literal::Array))?;
+            let num = self.parse_array_index()?;
             let end_loc = self.loc();
-            return Ok(Node::new_vec(contents, loc.merge(end_loc)));
+            let node = Node::new_array_index(node, num, loc.merge(end_loc));
+            return Ok(node);
         };
         loop {
             let tok = self.peek_no_skip_line_term();
@@ -611,7 +634,20 @@ impl Parser {
             }
         }
         if self.get_if_punct(Punct::RBoxBrackets) {
+            self.line_context_stack
+                .push(LineContext::Literal(Literal::Array));
             Ok(args)
+        } else {
+            Err(self.error_unexpected(self.loc()))
+        }
+    }
+
+    fn parse_array_index(&mut self) -> Result<i64, ParseError> {
+        self.get();
+        let num = self.expect_number()?;
+
+        if self.get_if_punct(Punct::RBoxBrackets) {
+            Ok(num)
         } else {
             Err(self.error_unexpected(self.loc()))
         }
@@ -660,10 +696,14 @@ impl Parser {
                 }
             }
             TokenKind::Punct(Punct::LBoxBrackets) => {
-                let contents = self.parse_box_brackets_contents()?;
-                let end_loc = self.loc();
-                let node = Node::new_vec(contents, loc.merge(end_loc));
-                Ok(node)
+                if self.is_first_line_context() {
+                    let contents = self.parse_box_brackets_contents()?;
+                    let end_loc = self.loc();
+                    let node = Node::new_vec(contents, loc.merge(end_loc));
+                    Ok(node)
+                } else {
+                    unimplemented!();
+                }
             }
             TokenKind::Reserved(Reserved::If) => {
                 let node = self.parse_if_then()?;

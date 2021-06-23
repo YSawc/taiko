@@ -27,6 +27,7 @@ pub enum NodeKind {
     Send(Box<Node>, Box<Node>, Box<ParsedArgs>),
     Table(Box<Node>),
     Vec(Box<Vec<Node>>),
+    ArrayIndex(Box<Node>, i64),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -158,6 +159,10 @@ impl Node {
 
     pub fn new_vec(contents: Vec<Node>, loc: Loc) -> Self {
         Node::new(NodeKind::Vec(Box::new(contents)), loc)
+    }
+
+    pub fn new_array_index(receiver: Node, num: i64, loc: Loc) -> Self {
+        Node::new(NodeKind::ArrayIndex(Box::new(receiver), num), loc)
     }
 
     pub fn new_table(table: Node) -> Self {

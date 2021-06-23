@@ -303,15 +303,22 @@ impl Evaluator {
                     .collect();
                 Ok(Value::Array(contents))
             }
+            NodeKind::ArrayIndex(receiver, num) => match &receiver.as_ref().kind {
+                NodeKind::Vec(vec) => {
+                    let value = self.eval_node(&(*vec)[*num as usize])?;
+                    Ok(value)
+                }
+                _ => unimplemented!(),
+            },
             NodeKind::BinOp(op, lhs, rhs) => {
                 match op {
                     BinOp::LAnd => {
-                        let lhs_v = self.eval_node(&lhs)?;
+                        let lhs_v = self.eval_node(lhs)?;
                         if let Value::Bool(b) = lhs_v {
                             if !b {
                                 return Ok(Value::Bool(false));
                             }
-                            let rhs_v = self.eval_node(&rhs)?;
+                            let rhs_v = self.eval_node(rhs)?;
                             if let Value::Bool(b) = rhs_v {
                                 return Ok(Value::Bool(b));
                             } else {
