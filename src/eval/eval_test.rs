@@ -301,4 +301,16 @@ mod test {
         let expected = Value::String("string".to_string());
         eval_script(program, expected);
     }
+
+    #[test]
+    fn each() {
+        let program = "
+            v = ['one', 2, 'three', 4]
+            v.each do |c|
+              puts(c)
+            end
+        ";
+        let expected = Value::Nil;
+        eval_script(program, expected);
+    }
 }

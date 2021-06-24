@@ -134,7 +134,8 @@ impl Evaluator {
             "assert" => Evaluator::builtin_assert,
             "class" => Evaluator::builtin_class,
             "times" => Evaluator::builtin_times,
-            "len" => Evaluator::builtin_len
+            "len" => Evaluator::builtin_len,
+            "each" => Evaluator::builtin_each
         }
     }
 
@@ -228,6 +229,35 @@ impl Evaluator {
             }
             _ => unimplemented!(),
         }
+    }
+
+    pub fn builtin_each(&mut self, receiver: Value, args: Args) -> Value {
+        match receiver {
+            Value::Array(contents) => {
+                for c in contents {
+                    self.new_propagated_local_var_stack();
+                    match args.table.kind {
+                        NodeKind::Ident(id) => {
+                            self.lvar_table().insert(id, c);
+                        }
+                        _ => (),
+                    };
+
+                    self.eval_node(&args.node).unwrap_or_else(|err| {
+                        panic!("Builtin#times: error occured while eval_node. {:?};", err)
+                    });
+                    let local_scope = self.local_scope().clone();
+                    self.scope_stack.pop();
+                    for (id, n) in local_scope.lvar_table.into_iter() {
+                        if self.local_scope().lvar_table.contains_key(&id) {
+                            *self.local_scope().lvar_table.get_mut(&id).unwrap() = n;
+                        }
+                    }
+                }
+            }
+            _ => unimplemented!(),
+        }
+        Value::Nil
     }
 }
 
