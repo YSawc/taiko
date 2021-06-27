@@ -17,7 +17,7 @@ pub struct ClassInfo {
 
 impl ClassInfo {
     pub fn new(id: IdentId, name: String, body: Node) -> Self {
-        ClassInfo {
+        Self {
             id,
             name,
             body: Box::new(body),
@@ -56,7 +56,7 @@ impl Default for GlobalClassTable {
 
 impl GlobalClassTable {
     pub fn new() -> Self {
-        GlobalClassTable {
+        Self {
             table: FxHashMap::default(),
             class_id: 0,
         }

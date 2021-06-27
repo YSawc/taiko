@@ -220,7 +220,7 @@ impl Parser {
     }
 
     fn expect_reserved(&mut self, expect: Reserved) -> Result<(), ParseError> {
-        let tok = self.get().clone();
+        let tok = self.get();
         let loc = self.loc();
         match &tok.kind {
             TokenKind::Reserved(reserved) => {
@@ -235,7 +235,7 @@ impl Parser {
     }
 
     fn expect_punct(&mut self, expect: Punct) -> Result<(), ParseError> {
-        let tok = self.get().clone();
+        let tok = self.get();
         let loc = self.loc();
         match &tok.kind {
             TokenKind::Punct(punct) => {
@@ -824,7 +824,7 @@ impl Parser {
     }
 
     pub fn parse_ident(&mut self) -> Result<Node, ParseError> {
-        let tok = self.get().clone();
+        let tok = self.get();
         let loc = tok.loc();
         match &tok.kind {
             TokenKind::Ident(name) => {

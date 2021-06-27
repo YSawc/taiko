@@ -364,12 +364,12 @@ impl Evaluator {
                         }
                     }
                     BinOp::LOr => {
-                        let lhs_v = self.eval_node(&lhs)?;
+                        let lhs_v = self.eval_node(lhs)?;
                         if let Value::Bool(b) = lhs_v {
                             if b {
                                 return Ok(Value::Bool(true));
                             }
-                            let rhs_v = self.eval_node(&rhs)?;
+                            let rhs_v = self.eval_node(rhs)?;
                             if let Value::Bool(b) = rhs_v {
                                 return Ok(Value::Bool(b));
                             } else {
@@ -383,8 +383,8 @@ impl Evaluator {
                     }
                     _ => {}
                 }
-                let lhs = self.eval_node(&lhs)?;
-                let rhs = self.eval_node(&rhs)?;
+                let lhs = self.eval_node(lhs)?;
+                let rhs = self.eval_node(rhs)?;
                 match op {
                     BinOp::Add => self.eval_add(lhs, rhs),
                     BinOp::Sub => self.eval_sub(lhs, rhs),
@@ -449,16 +449,16 @@ impl Evaluator {
             NodeKind::CompStmt(nodes) => {
                 let mut val = Value::Nil;
                 for node in nodes {
-                    val = self.eval_node(&node)?;
+                    val = self.eval_node(node)?;
                 }
                 Ok(val)
             }
             NodeKind::If(cond_, then_, else_) => {
-                let cond_val = self.eval_node(&cond_)?;
+                let cond_val = self.eval_node(cond_)?;
                 if self.val_to_bool(&cond_val) {
-                    self.eval_node(&then_)
+                    self.eval_node(then_)
                 } else {
-                    self.eval_node(&else_)
+                    self.eval_node(else_)
                 }
             }
             NodeKind::FuncDecl(id, params, body) => {

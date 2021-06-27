@@ -9,7 +9,7 @@ pub struct SourceInfo {
 
 impl SourceInfo {
     pub fn new() -> SourceInfo {
-        SourceInfo {
+        Self {
             code: vec![],
             coordinates: vec![],
         }
@@ -63,7 +63,7 @@ impl Default for IdentifierTable {
 
 impl IdentifierTable {
     pub fn new() -> Self {
-        IdentifierTable {
+        Self {
             table: FxHashMap::default(),
             table_rev: FxHashMap::default(),
             ident_id: 0,

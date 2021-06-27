@@ -69,7 +69,7 @@ impl Lexer {
         let source_info = SourceInfo::new();
         let len = source_info.code.len();
 
-        Lexer {
+        Self {
             source_info,
             len,
             line_start_pos: 0,

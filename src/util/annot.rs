@@ -9,7 +9,7 @@ pub struct Annot<T> {
 
 impl<T> Annot<T> {
     pub fn new(kind: T, loc: Loc) -> Self {
-        Annot { kind, loc }
+        Self { kind, loc }
     }
 
     pub fn loc(&self) -> Loc {

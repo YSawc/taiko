@@ -12,7 +12,7 @@ pub struct InstanceInfo {
 
 impl InstanceInfo {
     pub fn new(class_id: ClassRef, class_name: String) -> Self {
-        InstanceInfo {
+        Self {
             class_id,
             class_name,
             instance_var: FxHashMap::default(),
@@ -37,7 +37,7 @@ pub struct GlobalInstanceTable {
 
 impl GlobalInstanceTable {
     pub fn new() -> Self {
-        GlobalInstanceTable {
+        Self {
             table: FxHashMap::default(),
             instance_id: 0,
         }
