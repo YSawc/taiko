@@ -1,6 +1,7 @@
 use crate::eval::eval::*;
 use crate::node::node::*;
 use crate::util::util::*;
+use crate::value::value::*;
 use rustc_hash::FxHashMap;
 
 #[derive(Debug, Clone)]
@@ -8,6 +9,7 @@ pub struct ClassInfo {
     pub id: IdentId,
     pub name: String,
     pub body: Box<Node>,
+    pub instance_var: FxHashMap<IdentId, Value>,
     pub instance_method_table: MethodTable,
     pub class_method_table: MethodTable,
     pub subclass: FxHashMap<IdentId, ClassRef>,
@@ -19,6 +21,7 @@ impl ClassInfo {
             id,
             name,
             body: Box::new(body),
+            instance_var: FxHashMap::default(),
             instance_method_table: FxHashMap::default(),
             class_method_table: FxHashMap::default(),
             subclass: FxHashMap::default(),
@@ -31,7 +34,7 @@ impl ClassInfo {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ClassRef(usize);
+pub struct ClassRef(pub usize);
 
 impl std::hash::Hash for ClassRef {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -41,7 +44,7 @@ impl std::hash::Hash for ClassRef {
 
 #[derive(Debug, Clone)]
 pub struct GlobalClassTable {
-    table: FxHashMap<ClassRef, ClassInfo>,
+    pub table: FxHashMap<ClassRef, ClassInfo>,
     class_id: usize,
 }
 

@@ -18,10 +18,17 @@ pub struct Evaluator {
     pub class_stack: Vec<ClassRef>,
     pub scope_stack: Vec<LocalScope>,
     pub global_stack: Vec<GlobalScope>,
+    pub env: Vec<Env>,
 }
 
 type ValueTable = FxHashMap<IdentId, Value>;
 type BuiltinFunc = fn(eval: &mut Evaluator, receiver: Value, args: Args) -> Value;
+
+#[derive(Debug, Clone)]
+pub enum Env {
+    ClassRef(ClassRef),
+    InstanceRef(InstanceRef),
+}
 
 #[derive(Clone)]
 pub enum MethodInfo {
@@ -91,7 +98,7 @@ pub enum RuntimeErrorKind {
 
 impl Evaluator {
     pub fn new() -> Self {
-        Evaluator {
+        Self {
             source_info: SourceInfo::new(),
             ident_table: IdentifierTable::new(),
             class_table: GlobalClassTable::new(),
@@ -101,6 +108,7 @@ impl Evaluator {
             class_stack: vec![],
             scope_stack: vec![LocalScope::new()],
             global_stack: vec![GlobalScope::new()],
+            env: vec![],
         }
     }
 
@@ -145,6 +153,10 @@ impl Evaluator {
         self.class_stack.push(classref);
     }
 
+    fn env(&self) -> Env {
+        self.env.last().unwrap().to_owned()
+    }
+
     pub fn builtin_puts(&mut self, _receiver: Value, args: Args) -> Value {
         let args = args.value;
         for arg in args {
@@ -177,12 +189,12 @@ impl Evaluator {
         if args.len() != 2 {
             unimplemented!();
         };
-        if self.val_to_bool(&args[0]) {
+        let god = &args[0];
+        let expected = &args[1];
+        if god == expected {
             Value::Nil
-        } else if !self.val_to_bool(&args[0]) {
-            panic!("assertion fail!\n{:?}", self.val_to_s(&args[1]))
         } else {
-            unimplemented!()
+            panic!("assertion fail! Expected {:?}, bad god {:?}", god, expected)
         }
     }
 
@@ -196,13 +208,11 @@ impl Evaluator {
             Value::FixNum(n) => {
                 for i in 0..n {
                     self.new_propagated_local_var_stack();
-                    match args.table.kind {
-                        NodeKind::Ident(id) => {
-                            let imm_value = Value::FixNum(i);
-                            self.lvar_table().insert(id, imm_value);
-                        }
-                        _ => (),
-                    };
+
+                    if let NodeKind::Ident(id) = args.table.kind {
+                        let imm_value = Value::FixNum(i);
+                        self.lvar_table().insert(id, imm_value);
+                    }
 
                     self.eval_node(&args.node).unwrap_or_else(|err| {
                         panic!("Builtin#times: error occured while eval_node. {:?};", err)
@@ -246,13 +256,6 @@ impl Evaluator {
                     self.eval_node(&args.node).unwrap_or_else(|err| {
                         panic!("Builtin#times: error occured while eval_node. {:?};", err)
                     });
-                    let local_scope = self.local_scope().clone();
-                    self.scope_stack.pop();
-                    for (id, n) in local_scope.lvar_table.into_iter() {
-                        if self.local_scope().lvar_table.contains_key(&id) {
-                            *self.local_scope().lvar_table.get_mut(&id).unwrap() = n;
-                        }
-                    }
                 }
             }
             _ => unimplemented!(),
@@ -409,6 +412,26 @@ impl Evaluator {
                     }
                     Ok(rhs)
                 }
+                NodeKind::InstanceVar(id) => {
+                    let rhs = self.eval_node(&rhs.clone())?;
+                    match self.env() {
+                        Env::ClassRef(r) => {
+                            let instance_var = self.class_ref(r).instance_var.get_mut(&id);
+                            match instance_var {
+                                Some(val) => {
+                                    *val = rhs.clone();
+                                }
+                                None => {
+                                    self.class_ref(r).instance_var.insert(id, rhs.clone());
+                                }
+                            }
+                        }
+                        Env::InstanceRef(r) => {
+                            *self.instance_ref(r).instance_var.get_mut(&id).unwrap() = rhs.clone();
+                        }
+                    };
+                    Ok(rhs)
+                }
                 NodeKind::GlobalIdent(id) => {
                     let rhs = self.eval_node(&rhs.clone())?;
                     match self.lvar_table().get_mut(&id) {
@@ -455,12 +478,14 @@ impl Evaluator {
                 self.const_table.insert(*id, val);
                 self.new_propagated_local_var_stack();
                 self.class_stack.push(info);
+                self.env.push(Env::ClassRef(ClassRef(**id + 1)));
                 self.eval_node(body)?;
+                self.env.pop().unwrap();
                 self.class_stack.pop();
                 self.scope_stack.pop();
                 Ok(Value::Nil)
             }
-            NodeKind::BlockDecl(body) => self.eval_node(&body),
+            NodeKind::BlockDecl(body) => self.eval_node(body),
             NodeKind::Send(receiver, method, args) => {
                 let id = match method.kind {
                     NodeKind::Ident(id) => id,
@@ -470,7 +495,7 @@ impl Evaluator {
                 let args_val: Vec<Value> = args
                     .args
                     .iter()
-                    .map(|x| self.eval_node(&x).unwrap())
+                    .map(|x| self.eval_node(x).unwrap())
                     .collect();
 
                 let info = match self.method_table.get(&id) {
@@ -483,6 +508,7 @@ impl Evaluator {
                         body,
                         local_scope,
                     } => {
+                        let updated_flag = self.update_env_if_instance(receiver);
                         let args_value_len = args.args.len();
                         self.scope_stack.push(local_scope);
                         for (i, param) in params.iter().enumerate() {
@@ -502,6 +528,9 @@ impl Evaluator {
                             }
                         }
                         let val = self.eval_node(&body);
+                        if updated_flag {
+                            self.env.pop().unwrap();
+                        }
                         self.scope_stack.pop();
                         val
                     }
@@ -517,8 +546,37 @@ impl Evaluator {
                     }
                 }
             }
+            NodeKind::InstanceVar(id) => match self.env() {
+                Env::InstanceRef(r) => Ok(self.instance_value(r, *id)),
+                _ => unimplemented!(),
+            },
             _ => unimplemented!("{:?}", node.kind),
         }
+    }
+
+    fn class_ref(&mut self, class_ref: ClassRef) -> &mut ClassInfo {
+        self.class_table.table.get_mut(&class_ref).unwrap()
+    }
+
+    fn instance_ref(&mut self, instance_ref: InstanceRef) -> &mut InstanceInfo {
+        self.instance_table.get_mut(instance_ref)
+    }
+
+    fn instance_value(&mut self, instance_ref: InstanceRef, id: IdentId) -> Value {
+        self.instance_table
+            .get_mut(instance_ref)
+            .instance_var
+            .get(&id)
+            .unwrap()
+            .to_owned()
+    }
+
+    fn update_env_if_instance(&mut self, receiver: Value) -> bool {
+        if let Value::Instance(id) = receiver {
+            self.env.push(Env::InstanceRef(id));
+            return true;
+        }
+        false
     }
 
     fn eval_add(&mut self, lhs: Value, rhs: Value) -> EvalResult {
@@ -634,7 +692,9 @@ impl Evaluator {
     pub fn new_instance(&mut self, class_id: ClassRef) -> InstanceRef {
         let class_info = self.class_table.get(class_id);
         let class_name = class_info.name.clone();
-        self.instance_table.new_instance(class_id, class_name)
+        let instance_var = class_info.instance_var.to_owned();
+        self.instance_table
+            .new_instance(class_id, class_name, instance_var)
     }
 }
 

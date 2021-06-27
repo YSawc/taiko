@@ -117,7 +117,7 @@ mod test {
               end
             end
 
-            assert(Foo.new.bar(5) == 10, "must pass")
+            assert(Foo.new.bar(5), 10)
             Foo.new.bar2
             "#;
         let expected = Value::FixNum(2);
@@ -127,7 +127,7 @@ mod test {
     #[test]
     fn assert1() {
         let program = "
-        assert(1 == 1, 'must pass.')
+        assert(1, 1)
         ";
         let expected = Value::Nil;
         eval_script(program, expected);
@@ -144,7 +144,7 @@ mod test {
           end
         end
 
-        assert(Foo.new.bar(5) == 10, "must pass")
+        assert(Foo.new.bar(5), 10)
         "#;
         let expected = Value::Nil;
         eval_script(program, expected);
@@ -271,14 +271,14 @@ mod test {
     #[test]
     fn times4() {
         let program = "
-            @g = 0
-            g = 0
+            a = 0
+            b = 0
             24.times do |n|
-              g = g + n + @g
-              @g = g
+              b = b + n + a
+              a = b
             end
 
-            @g
+            a
         ";
         let expected = Value::FixNum(16777191);
         eval_script(program, expected);
@@ -309,6 +309,38 @@ mod test {
             v.each do |c|
               puts(c)
             end
+        ";
+        let expected = Value::Nil;
+        eval_script(program, expected);
+    }
+
+    #[test]
+    fn class1() {
+        let program = "
+            class Vec
+              @xxx=100
+              def set_xxx(x)
+                @xxx = x
+              end
+              def len(x,y)
+                def sq(x)
+                  x*x
+                end
+                sq(x)+sq(y)
+              end
+              def get_xxx
+                @xxx
+              end
+            end
+            foo1 = Vec.new
+            foo1.set_xxx(1)
+            assert(25, foo1.len(3,4))
+            foo1.set_xxx(777)
+            foo2 = Vec.new
+            assert(777, foo1.get_xxx)
+            foo2.set_xxx(999)
+            assert(777, foo1.get_xxx)
+            assert(999, foo2.get_xxx)
         ";
         let expected = Value::Nil;
         eval_script(program, expected);

@@ -122,7 +122,7 @@ pub enum ParseErrorKind {
 impl Parser {
     pub fn new() -> Self {
         let lexer = Lexer::new();
-        Parser {
+        Self {
             lexer,
             tokens: vec![],
             cursor: 0,
@@ -654,16 +654,16 @@ impl Parser {
     }
 
     fn parse_primary(&mut self) -> Result<Node, ParseError> {
-        let tok = self.get().clone();
+        let tok = self.get();
         let loc = tok.loc();
         match &tok.kind {
             TokenKind::Punct(Punct::At) => {
-                let tok = self.get().clone();
+                let tok = self.get();
                 let loc = tok.loc();
                 match &tok.kind {
                     TokenKind::Ident(name) => {
                         let id = self.ident_table.get_ident_id(name);
-                        Ok(Node::new_identifier(id, loc))
+                        Ok(Node::new_instance_var(id, loc))
                     }
                     _ => unimplemented!(),
                 }
@@ -688,7 +688,7 @@ impl Parser {
             TokenKind::StringLit(s) => Ok(Node::new_string(s.to_string(), loc)),
             TokenKind::Punct(Punct::LParen) => {
                 let node = self.parse_comp_stmt()?;
-                let tok = self.get().clone();
+                let tok = self.get();
                 if tok.kind == TokenKind::Punct(Punct::RParen) {
                     Ok(node)
                 } else {

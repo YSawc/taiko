@@ -18,6 +18,7 @@ pub enum NodeKind {
     CompStmt(Vec<Node>),
     If(Box<Node>, Box<Node>, Box<Node>),
     Ident(IdentId),
+    InstanceVar(IdentId),
     GlobalIdent(IdentId),
     Const(IdentId),
     Param(IdentId),
@@ -26,7 +27,7 @@ pub enum NodeKind {
     BlockDecl(Box<Node>),
     Send(Box<Node>, Box<Node>, Box<ParsedArgs>),
     Table(Box<Node>),
-    Vec(Box<Vec<Node>>),
+    Vec(Vec<Node>),
     ArrayIndex(Box<Node>, i64),
 }
 
@@ -121,6 +122,10 @@ impl Node {
         Node::new(NodeKind::Ident(id), loc)
     }
 
+    pub fn new_instance_var(id: IdentId, loc: Loc) -> Self {
+        Node::new(NodeKind::InstanceVar(id), loc)
+    }
+
     pub fn new_global_identifier(id: IdentId, loc: Loc) -> Self {
         Node::new(NodeKind::GlobalIdent(id), loc)
     }
@@ -158,7 +163,7 @@ impl Node {
     }
 
     pub fn new_vec(contents: Vec<Node>, loc: Loc) -> Self {
-        Node::new(NodeKind::Vec(Box::new(contents)), loc)
+        Node::new(NodeKind::Vec(Box::new(contents).to_vec()), loc)
     }
 
     pub fn new_array_index(receiver: Node, num: i64, loc: Loc) -> Self {

@@ -43,9 +43,15 @@ impl GlobalInstanceTable {
         }
     }
 
-    pub fn new_instance(&mut self, class_id: ClassRef, class_name: String) -> InstanceRef {
-        let info = InstanceInfo::new(class_id, class_name);
+    pub fn new_instance(
+        &mut self,
+        class_id: ClassRef,
+        class_name: String,
+        instance_var: FxHashMap<IdentId, Value>,
+    ) -> InstanceRef {
+        let mut info = InstanceInfo::new(class_id, class_name);
         let new_instance = InstanceRef(self.instance_id);
+        info.instance_var = instance_var;
         self.instance_id += 1;
         self.table.insert(new_instance, info);
         new_instance
