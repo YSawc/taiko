@@ -427,7 +427,14 @@ impl Evaluator {
                             }
                         }
                         Env::InstanceRef(r) => {
-                            *self.instance_ref(r).instance_var.get_mut(&id).unwrap() = rhs.clone();
+                            match self.instance_ref(r).instance_var.get_mut(&id) {
+                                Some(val) => {
+                                    *val = rhs.clone();
+                                }
+                                None => {
+                                    self.instance_ref(r).instance_var.insert(id, rhs.clone());
+                                }
+                            }
                         }
                     };
                     Ok(rhs)

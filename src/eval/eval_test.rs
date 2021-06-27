@@ -345,4 +345,29 @@ mod test {
         let expected = Value::Nil;
         eval_script(program, expected);
     }
+
+    #[test]
+    fn class2() {
+        let program = "
+            class Car
+              def setName(str)
+                @name = str
+              end
+
+              def getName
+                @name
+              end
+            end
+
+            car1 = Car.new
+            car1.setName('Legacy')
+
+            car2 = Car.new
+            car2.setName('XV')
+            assert(car2.getName, 'XV')
+            assert(car1.getName, 'Legacy')
+        ";
+        let expected = Value::Nil;
+        eval_script(program, expected);
+    }
 }
