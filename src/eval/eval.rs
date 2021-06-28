@@ -143,7 +143,8 @@ impl Evaluator {
             "class" => Evaluator::builtin_class,
             "times" => Evaluator::builtin_times,
             "len" => Evaluator::builtin_len,
-            "each" => Evaluator::builtin_each
+            "each" => Evaluator::builtin_each,
+            "instance_variables" => Evaluator::builtin_instance_variables
         }
     }
 
@@ -261,6 +262,22 @@ impl Evaluator {
             _ => unimplemented!(),
         }
         Value::Nil
+    }
+
+    pub fn builtin_instance_variables(&mut self, receiver: Value, _args: Args) -> Value {
+        match receiver {
+            Value::Instance(instance_ref) => {
+                let mut names = vec![];
+                for key in self.instance_ref(instance_ref).instance_var.clone().keys() {
+                    names.push(Value::String(format!(
+                        "@{}",
+                        self.ident_table.table_rev.get_mut(key).unwrap()
+                    )));
+                }
+                Value::Array(names)
+            }
+            _ => unimplemented!(),
+        }
     }
 }
 
@@ -734,7 +751,7 @@ impl Evaluator {
             Value::String(s) => s.clone(),
             Value::Class(class) => {
                 let class_info = self.class_table.get(*class);
-                class_info.name.to_string()
+                format!("#<{}:{:?}>", class_info.name, class)
             }
             Value::Instance(instance) => {
                 let info = self.instance_table.get(*instance);
@@ -743,7 +760,9 @@ impl Evaluator {
             Value::SelfClass(c) => {
                 format!("{:?}", c)
             }
-            _ => unimplemented!(),
+            Value::Array(v) => {
+                format!("{:?}", v)
+            }
         }
     }
 

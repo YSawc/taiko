@@ -51,7 +51,7 @@ impl std::hash::Hash for IdentId {
 #[derive(Debug, Clone, PartialEq)]
 pub struct IdentifierTable {
     table: FxHashMap<String, usize>,
-    table_rev: FxHashMap<usize, String>,
+    pub table_rev: FxHashMap<usize, String>,
     ident_id: usize,
 }
 
