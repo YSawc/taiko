@@ -372,7 +372,7 @@ mod test {
     }
 
     #[test]
-    fn instance_variables() {
+    fn class3() {
         let program = "
             class Car
               def setName(str)
@@ -395,26 +395,41 @@ mod test {
         eval_script(program, expected_result);
     }
 
+
     #[test]
-    fn class_instance() {
+    fn class() {
         let program = "
             class Car
               @@class_var = 2
-
+              def setName(str)
+                @name = str
+              end
+            
+              def getName
+                @name
+              end
+            
               def set_class_var(i)
                 @@class_var = i
               end
-
+            
               def get_class_var
                 @@class_var
               end
             end
-
+            
             car1 = Car.new
+            car1.setName('Legacy')
+            car1.instance_variables
+            
             car1.set_class_var(22222)
             car1.get_class_var
+
         ";
-        let expected = Value::FixNum(22222);
-        eval_script(program, expected);
+        let expected_strings = Value::String("@name".to_string());
+        let mut expected_vec = vec![];
+        expected_vec.push(expected_strings);
+        let expected_result = Value::Array(expected_vec);
+        eval_script(program, expected_result);
     }
 }

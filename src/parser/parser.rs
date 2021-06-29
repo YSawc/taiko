@@ -657,6 +657,17 @@ impl Parser {
         let tok = self.get();
         let loc = tok.loc();
         match &tok.kind {
+            TokenKind::Punct(Punct::AtAt) => {
+                let tok = self.get();
+                let loc = tok.loc();
+                match &tok.kind {
+                    TokenKind::Ident(name) => {
+                        let id = self.ident_table.get_ident_id(name);
+                        Ok(Node::new_class_var(id, loc))
+                    }
+                    _ => unimplemented!(),
+                }
+            }
             TokenKind::Punct(Punct::At) => {
                 let tok = self.get();
                 let loc = tok.loc();

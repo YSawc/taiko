@@ -247,8 +247,7 @@ impl Lexer {
             ":" => Punct::Colon,
             "," => Punct::Comma,
             "." => Punct::Dot,
-            "|" => Punct::Pipe,
-            "@" => Punct::At
+            "|" => Punct::Pipe
         }
 
         match punct.contains_key(&ch.to_string()) {
@@ -306,6 +305,15 @@ impl Lexer {
                         Ok(self.new_punct(Punct::LOr))
                     } else {
                         Ok(self.new_punct(Punct::Or))
+                    }
+                }
+                '@' => {
+                    let ch = self.peek()?;
+                    if ch == '@' {
+                        self.get()?;
+                        Ok(self.new_punct(Punct::AtAt))
+                    } else {
+                        Ok(self.new_punct(Punct::At))
                     }
                 }
                 _ => unimplemented!("{}", ch),

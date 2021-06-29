@@ -227,7 +227,10 @@ impl Evaluator {
                     }
                 }
             }
-            _ => unimplemented!(),
+            _ => panic!(
+                "Builtin#times : must has array reciver, bud god {:?}.",
+                receiver
+            ),
         }
         Value::Nil
     }
@@ -255,11 +258,14 @@ impl Evaluator {
                     };
 
                     self.eval_node(&args.node).unwrap_or_else(|err| {
-                        panic!("Builtin#times: error occured while eval_node. {:?};", err)
+                        panic!("Builtin#each: error occured while eval_node. {:?}.", err)
                     });
                 }
             }
-            _ => unimplemented!(),
+            _ => panic!(
+                "Builtin#each: must has array reciver, bud god {:?}.",
+                receiver
+            ),
         }
         Value::Nil
     }
@@ -276,7 +282,10 @@ impl Evaluator {
                 }
                 Value::Array(names)
             }
-            _ => unimplemented!(),
+            _ => panic!(
+                "Builtin#instance_variables: must has array reciver, bud god {:?}.",
+                receiver
+            ),
         }
     }
 }
@@ -456,6 +465,34 @@ impl Evaluator {
                     };
                     Ok(rhs)
                 }
+                NodeKind::ClassVar(id) => {
+                    let rhs = self.eval_node(&rhs.clone())?;
+                    match self.env() {
+                        Env::ClassRef(r) => {
+                            let class_var = self.class_ref(r).class_var.get_mut(&id);
+                            match class_var {
+                                Some(val) => {
+                                    *val = rhs.clone();
+                                }
+                                None => {
+                                    self.class_ref(r).class_var.insert(id, rhs.clone());
+                                }
+                            }
+                        }
+                        Env::InstanceRef(r) => {
+                            let class_var = self.class_ref_with_instance(r).class_var.get_mut(&id);
+                            match class_var {
+                                Some(val) => {
+                                    *val = rhs.clone();
+                                }
+                                None => {
+                                    panic!("This class variable not defined. {:?}", id);
+                                }
+                            }
+                        }
+                    };
+                    Ok(rhs)
+                }
                 NodeKind::GlobalIdent(id) => {
                     let rhs = self.eval_node(&rhs.clone())?;
                     match self.lvar_table().get_mut(&id) {
@@ -574,12 +611,21 @@ impl Evaluator {
                 Env::InstanceRef(r) => Ok(self.instance_value(r, *id)),
                 _ => unimplemented!(),
             },
+            NodeKind::ClassVar(id) => match self.env() {
+                Env::ClassRef(r) => Ok(self.class_value(r, *id)),
+                Env::InstanceRef(r) => Ok(self.class_value_with_instance(r, *id)),
+            },
             _ => unimplemented!("{:?}", node.kind),
         }
     }
 
     fn class_ref(&mut self, class_ref: ClassRef) -> &mut ClassInfo {
         self.class_table.table.get_mut(&class_ref).unwrap()
+    }
+
+    fn class_ref_with_instance(&mut self, instance_ref: InstanceRef) -> &mut ClassInfo {
+        let class_ref = self.instance_ref(instance_ref).class_id;
+        self.class_ref(class_ref)
     }
 
     fn instance_ref(&mut self, instance_ref: InstanceRef) -> &mut InstanceInfo {
@@ -591,6 +637,22 @@ impl Evaluator {
             .get_mut(instance_ref)
             .instance_var
             .get(&id)
+            .unwrap()
+            .to_owned()
+    }
+
+    fn class_value(&mut self, class_ref: ClassRef, id: IdentId) -> Value {
+        self.class_ref(class_ref)
+            .class_var
+            .get_mut(&id)
+            .unwrap()
+            .to_owned()
+    }
+
+    fn class_value_with_instance(&mut self, instance_ref: InstanceRef, id: IdentId) -> Value {
+        self.class_ref_with_instance(instance_ref)
+            .class_var
+            .get_mut(&id)
             .unwrap()
             .to_owned()
     }
@@ -715,10 +777,15 @@ impl Evaluator {
     }
     pub fn new_instance(&mut self, class_id: ClassRef) -> InstanceRef {
         let class_info = self.class_table.get(class_id);
-        let class_name = class_info.name.clone();
+        let class_name = &class_info.name;
+        let subclass = &class_info.subclass;
         let instance_var = class_info.instance_var.to_owned();
-        self.instance_table
-            .new_instance(class_id, class_name, instance_var)
+        self.instance_table.new_instance(
+            class_id,
+            class_name.to_owned(),
+            instance_var,
+            subclass.to_owned(),
+        )
     }
 }
 

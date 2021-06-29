@@ -11,6 +11,7 @@ pub struct ClassInfo {
     pub body: Box<Node>,
     pub instance_var: FxHashMap<IdentId, Value>,
     pub instance_method_table: MethodTable,
+    pub class_var: FxHashMap<IdentId, Value>,
     pub class_method_table: MethodTable,
     pub subclass: FxHashMap<IdentId, ClassRef>,
 }
@@ -22,6 +23,7 @@ impl ClassInfo {
             name,
             body: Box::new(body),
             instance_var: FxHashMap::default(),
+            class_var: FxHashMap::default(),
             instance_method_table: FxHashMap::default(),
             class_method_table: FxHashMap::default(),
             subclass: FxHashMap::default(),

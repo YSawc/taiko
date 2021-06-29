@@ -8,6 +8,7 @@ pub struct InstanceInfo {
     pub class_id: ClassRef,
     pub class_name: String,
     pub instance_var: FxHashMap<IdentId, Value>,
+    pub subclass: FxHashMap<IdentId, ClassRef>,
 }
 
 impl InstanceInfo {
@@ -16,6 +17,7 @@ impl InstanceInfo {
             class_id,
             class_name,
             instance_var: FxHashMap::default(),
+            subclass: FxHashMap::default(),
         }
     }
 }
@@ -48,10 +50,12 @@ impl GlobalInstanceTable {
         class_id: ClassRef,
         class_name: String,
         instance_var: FxHashMap<IdentId, Value>,
+        subclass: FxHashMap<IdentId, ClassRef>,
     ) -> InstanceRef {
         let mut info = InstanceInfo::new(class_id, class_name);
         let new_instance = InstanceRef(self.instance_id);
         info.instance_var = instance_var;
+        info.subclass = subclass;
         self.instance_id += 1;
         self.table.insert(new_instance, info);
         new_instance

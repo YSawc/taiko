@@ -19,6 +19,7 @@ pub enum NodeKind {
     If(Box<Node>, Box<Node>, Box<Node>),
     Ident(IdentId),
     InstanceVar(IdentId),
+    ClassVar(IdentId),
     GlobalIdent(IdentId),
     Const(IdentId),
     Param(IdentId),
@@ -124,6 +125,10 @@ impl Node {
 
     pub fn new_instance_var(id: IdentId, loc: Loc) -> Self {
         Node::new(NodeKind::InstanceVar(id), loc)
+    }
+
+    pub fn new_class_var(id: IdentId, loc: Loc) -> Self {
+        Node::new(NodeKind::ClassVar(id), loc)
     }
 
     pub fn new_global_identifier(id: IdentId, loc: Loc) -> Self {
