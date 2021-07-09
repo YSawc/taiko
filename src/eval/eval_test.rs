@@ -41,27 +41,27 @@ mod test {
         eval_script(program, expected);
     }
 
-    #[test]
-    fn func2() {
-        let program = "
-        def self1
-        puts(self)
-        end
+    // #[test]
+    // fn func2() {
+    //     let program = "
+    //     def self1
+    //     puts(self)
+    //     end
 
-        self1()
+    //     self1()
 
-        class Foo
-            puts(self)
-            class Bar
-                puts(self)
-            end
-        end
+    //     class Foo
+    //         puts(self)
+    //         class Bar
+    //             puts(self)
+    //         end
+    //     end
 
-        self1()
-        ";
-        let expected = Value::Nil;
-        eval_script(program, expected);
-    }
+    //     self1()
+    //     ";
+    //     let expected = Value::Nil;
+    //     eval_script(program, expected);
+    // }
 
     #[test]
     fn func3() {
@@ -144,6 +144,7 @@ mod test {
           end
         end
 
+        assert(a, 1)
         assert(Foo.new.bar(5), 10)
         "#;
         let expected = Value::Nil;
@@ -395,26 +396,61 @@ mod test {
         eval_script(program, expected_result);
     }
 
+    // #[test]
+    // fn class_instance() {
+    //     let program = "
+    //         class Car
+    //           @@class_var = 2
+
+    //           def set_class_var(i)
+    //             @@class_var = i
+    //           end
+
+    //           def get_class_var
+    //             @@class_var
+    //           end
+    //         end
+
+    //         car1 = Car.new
+    //         car1.set_class_var(22222)
+    //         car1.get_class_var
+    //     ";
+    //     let expected = Value::FixNum(22222);
+    //     eval_script(program, expected);
+    // }
+
     #[test]
-    fn class_instance() {
+    fn class_inheritance() {
         let program = "
-            class Car
-              @@class_var = 2
-
-              def set_class_var(i)
-                @@class_var = i
-              end
-
-              def get_class_var
-                @@class_var
-              end
+          class A
+            @xxx=100
+            def set_xxx(x)
+              @xxx = x
             end
+            def len(x,y)
+              def sq(x)
+                x*x
+              end
+              sq(x)+sq(y)
+            end
+            def get_xxx
+              @xxx
+            end
+          end
 
-            car1 = Car.new
-            car1.set_class_var(22222)
-            car1.get_class_var
+          class B < A
+          end
+          foo1 = A.new
+          foo1.set_xxx(1)
+          assert(25, foo1.len(3,4))
+          foo1.set_xxx(777)
+          foo2 = B.new
+          assert(777, foo1.get_xxx)
+          foo2.set_xxx(999)
+          assert(777, foo1.get_xxx)
+          assert(999, foo2.get_xxx)
         ";
-        let expected = Value::FixNum(22222);
+        let expected = Value::Nil;
         eval_script(program, expected);
     }
 }

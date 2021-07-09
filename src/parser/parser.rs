@@ -742,10 +742,16 @@ impl Parser {
         self.expect_out_of_method_block_context()?;
         self.block_context_stack.push(BlockContext::Class);
         self.expect_first_line_context()?;
-        let loc = self.loc();
-        let name = match &self.get().kind {
-            TokenKind::Const(s) => s.clone(),
-            _ => return Err(self.error_unexpected(loc)),
+        let name = self.parse_const()?;
+
+        self.skip_space();
+        let inheritance_class_id = match self.peek_no_skip_line_term().kind {
+            TokenKind::Punct(Punct::LT) => {
+                self.get();
+                let inheritance_class_name = self.parse_const()?;
+                Some(self.ident_table.get_ident_id(&inheritance_class_name))
+            }
+            _ => None,
         };
         let id = self.ident_table.get_ident_id(&name);
 
@@ -754,7 +760,15 @@ impl Parser {
         self.block_context_stack.pop().unwrap();
         self.reset_line_context();
 
-        Ok(Node::new_class_decl(id, body))
+        Ok(Node::new_class_decl(id, body, inheritance_class_id))
+    }
+
+    pub fn parse_const(&mut self) -> Result<String, ParseError> {
+        let loc = self.loc();
+        match &self.get().kind {
+            TokenKind::Const(s) => Ok(s.clone()),
+            _ => Err(self.error_unexpected(loc)),
+        }
     }
 
     pub fn parse_then(&mut self) -> Result<(), ParseError> {

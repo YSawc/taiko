@@ -28,7 +28,7 @@ fn repl() {
     let mut program = String::new();
     let mut parser = Parser::new();
     let mut eval = Evaluator::new();
-    eval.repl_init(parser.lexer.source_info.clone(), parser.ident_table.clone());
+    eval.repl_init_method(parser.lexer.source_info.clone(), parser.ident_table.clone());
     eval.repl_set_main();
     loop {
         let prompt = if program.len() == 0 { ">" } else { "*" };
@@ -46,7 +46,7 @@ fn repl() {
         let ident_table = parser.ident_table.clone();
         match parser.parse_program(program.clone()) {
             Ok(node) => {
-                eval.repl_init(parser.lexer.source_info.clone(), parser.ident_table.clone());
+                eval.repl_init_method(parser.lexer.source_info.clone(), parser.ident_table.clone());
                 match eval.eval(&node) {
                     Ok(result) => {
                         parser.lexer.source_info = eval.source_info.clone();

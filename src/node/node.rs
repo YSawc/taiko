@@ -24,7 +24,7 @@ pub enum NodeKind {
     Const(IdentId),
     Param(IdentId),
     FuncDecl(IdentId, NodeVec, Box<Node>),
-    ClassDecl(IdentId, Box<Node>),
+    ClassDecl(IdentId, Box<Node>, Option<IdentId>),
     BlockDecl(Box<Node>),
     Send(Box<Node>, Box<Node>, Box<ParsedArgs>),
     Table(Box<Node>),
@@ -146,9 +146,12 @@ impl Node {
         Node::new(NodeKind::FuncDecl(id, params, Box::new(body)), loc)
     }
 
-    pub fn new_class_decl(id: IdentId, body: Node) -> Self {
+    pub fn new_class_decl(id: IdentId, body: Node, inheritance_class_id: Option<IdentId>) -> Self {
         let loc = Loc::new(body.loc());
-        Node::new(NodeKind::ClassDecl(id, Box::new(body)), loc)
+        Node::new(
+            NodeKind::ClassDecl(id, Box::new(body), inheritance_class_id),
+            loc,
+        )
     }
 
     pub fn new_block_decl(body: Node) -> Self {

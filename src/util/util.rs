@@ -33,7 +33,7 @@ impl SourceInfo {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct IdentId(usize);
+pub struct IdentId(pub usize);
 
 impl std::ops::Deref for IdentId {
     type Target = usize;
@@ -50,7 +50,7 @@ impl std::hash::Hash for IdentId {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct IdentifierTable {
-    table: FxHashMap<String, usize>,
+    pub table: FxHashMap<String, usize>,
     pub table_rev: FxHashMap<usize, String>,
     ident_id: usize,
 }
