@@ -162,7 +162,7 @@ impl Evaluator {
             Env::ClassRef(r) => r,
             Env::InstanceRef(r) => self.class_ref_with_instance(r),
         };
-        self.class_ref(env)
+        self.class_info_with_ref(env)
     }
 
     pub fn builtin_puts(&mut self, _receiver: Value, args: Args) -> Value {
@@ -450,13 +450,16 @@ impl Evaluator {
                     let rhs = self.eval_node(&rhs.clone())?;
                     match self.env() {
                         Env::ClassRef(r) => {
-                            let instance_var = self.class_ref(r).instance_var.get_mut(&id);
+                            let instance_var =
+                                self.class_info_with_ref(r).instance_var.get_mut(&id);
                             match instance_var {
                                 Some(val) => {
                                     *val = rhs.clone();
                                 }
                                 None => {
-                                    self.class_ref(r).instance_var.insert(id, rhs.clone());
+                                    self.class_info_with_ref(r)
+                                        .instance_var
+                                        .insert(id, rhs.clone());
                                 }
                             }
                         }
@@ -477,14 +480,16 @@ impl Evaluator {
                     let rhs = self.eval_node(&rhs.clone())?;
                     match self.env() {
                         Env::ClassRef(r) => {
-                            let class_var = self.class_ref(r).class_var.get_mut(&id);
+                            let class_var = self.class_info_with_ref(r).class_var.get_mut(&id);
                             match class_var {
                                 Some(val) => {
                                     *val = rhs;
                                     Ok(val.to_owned())
                                 }
                                 None => {
-                                    self.class_ref(r).class_var.insert(id, rhs.clone());
+                                    self.class_info_with_ref(r)
+                                        .class_var
+                                        .insert(id, rhs.clone());
                                     Ok(rhs)
                                 }
                             }
@@ -628,7 +633,7 @@ impl Evaluator {
         }
     }
 
-    fn class_ref(&mut self, class_ref: ClassRef) -> &mut ClassInfo {
+    fn class_info_with_ref(&mut self, class_ref: ClassRef) -> &mut ClassInfo {
         self.class_table.table.get_mut(&class_ref).unwrap()
     }
 
@@ -643,7 +648,7 @@ impl Evaluator {
 
     fn class_info_with_instance(&mut self, instance_ref: InstanceRef) -> &mut ClassInfo {
         let class_ref = self.instance_ref(instance_ref).class_id;
-        self.class_ref(class_ref)
+        self.class_info_with_ref(class_ref)
     }
 
     fn class_ref_with_instance(&mut self, instance_ref: InstanceRef) -> ClassRef {
@@ -664,7 +669,7 @@ impl Evaluator {
     }
 
     fn class_value(&mut self, class_ref: ClassRef, id: IdentId) -> Value {
-        self.class_ref(class_ref)
+        self.class_info_with_ref(class_ref)
             .class_var
             .get_mut(&id)
             .unwrap()
@@ -689,7 +694,7 @@ impl Evaluator {
 
     fn add_subclass(&mut self, info: ClassRef, inheritence_class_id: Option<IdentId>) {
         if let Some(inheritence_class_id) = inheritence_class_id {
-            let class = self.class_ref(info);
+            let class = self.class_info_with_ref(info);
             class
                 .subclass
                 .insert(inheritence_class_id, ClassRef(*inheritence_class_id + 1));
@@ -704,12 +709,12 @@ impl Evaluator {
                     *self.class_info_with_instance(InstanceRef(*r)).id
                 }
             };
-            let class_ref = self.class_ref(ClassRef(r)).clone();
+            let class_ref = self.class_info_with_ref(ClassRef(r)).clone();
             match class_ref.method_table.get(&id) {
                 Some(info) => return info.to_owned(),
                 None => {
                     for r in class_ref.subclass.values() {
-                        if let Some(info) = self.class_ref(*r).method_table.get(&id) {
+                        if let Some(info) = self.class_info_with_ref(*r).method_table.get(&id) {
                             return info.to_owned();
                         }
                     }
