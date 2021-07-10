@@ -113,13 +113,17 @@ impl Evaluator {
     }
 
     pub fn init(&mut self, source_info: SourceInfo, ident_table: IdentifierTable) {
-        self.repl_set_main();
         self.repl_init_method(source_info, ident_table);
     }
 
     pub fn repl_init_method(&mut self, source_info: SourceInfo, ident_table: IdentifierTable) {
         self.source_info = source_info;
         self.ident_table = ident_table;
+
+        let id = self.ident_table.get_ident_id(&"top".to_string());
+        let classref = self.new_class(id, Node::new_comp_stmt());
+        self.env.push(Env::ClassRef(classref));
+        self.class_stack.push(classref);
 
         macro_rules! reg_method_table {
                      ( $($id:expr => $func:path),+ ) => {
@@ -146,13 +150,6 @@ impl Evaluator {
             "each" => Evaluator::builtin_each,
             "instance_variables" => Evaluator::builtin_instance_variables
         }
-    }
-
-    pub fn repl_set_main(&mut self) {
-        let id = self.ident_table.get_ident_id(&"top".to_string());
-        let classref = self.new_class(id, Node::new_comp_stmt());
-        self.env.push(Env::ClassRef(classref));
-        self.class_stack.push(classref);
     }
 
     fn env(&mut self) -> Env {
@@ -554,7 +551,8 @@ impl Evaluator {
                 self.const_table.insert(*id, val);
                 self.new_propagated_local_var_stack();
                 self.class_stack.push(info);
-                self.env.push(Env::ClassRef(ClassRef(**id)));
+                let class_ref = self.class_ref_with_id(*id);
+                self.env.push(Env::ClassRef(class_ref));
                 self.eval_node(body)?;
                 self.env.pop().unwrap();
                 self.class_stack.pop();
@@ -632,6 +630,15 @@ impl Evaluator {
 
     fn class_ref(&mut self, class_ref: ClassRef) -> &mut ClassInfo {
         self.class_table.table.get_mut(&class_ref).unwrap()
+    }
+
+    fn class_ref_with_id(&mut self, ident_id: IdentId) -> ClassRef {
+        for t in self.class_table.table.to_owned() {
+            if t.1.id == ident_id {
+                return t.0;
+            }
+        }
+        unimplemented!()
     }
 
     fn class_info_with_instance(&mut self, instance_ref: InstanceRef) -> &mut ClassInfo {

@@ -41,27 +41,27 @@ mod test {
         eval_script(program, expected);
     }
 
-    // #[test]
-    // fn func2() {
-    //     let program = "
-    //     def self1
-    //     puts(self)
-    //     end
+    #[test]
+    fn func2() {
+        let program = "
+        def self1
+        puts(self)
+        end
 
-    //     self1()
+        self1()
 
-    //     class Foo
-    //         puts(self)
-    //         class Bar
-    //             puts(self)
-    //         end
-    //     end
+        class Foo
+            puts(self)
+            class Bar
+                puts(self)
+            end
+        end
 
-    //     self1()
-    //     ";
-    //     let expected = Value::Nil;
-    //     eval_script(program, expected);
-    // }
+        self1()
+        ";
+        let expected = Value::Nil;
+        eval_script(program, expected);
+    }
 
     #[test]
     fn func3() {
@@ -396,28 +396,28 @@ mod test {
         eval_script(program, expected_result);
     }
 
-    // #[test]
-    // fn class_instance() {
-    //     let program = "
-    //         class Car
-    //           @@class_var = 2
+    #[test]
+    fn class_instance() {
+        let program = "
+            class Car
+              @@class_var = 2
 
-    //           def set_class_var(i)
-    //             @@class_var = i
-    //           end
+              def set_class_var(i)
+                @@class_var = i
+              end
 
-    //           def get_class_var
-    //             @@class_var
-    //           end
-    //         end
+              def get_class_var
+                @@class_var
+              end
+            end
 
-    //         car1 = Car.new
-    //         car1.set_class_var(22222)
-    //         car1.get_class_var
-    //     ";
-    //     let expected = Value::FixNum(22222);
-    //     eval_script(program, expected);
-    // }
+            car1 = Car.new
+            car1.set_class_var(22222)
+            car1.get_class_var
+        ";
+        let expected = Value::FixNum(22222);
+        eval_script(program, expected);
+    }
 
     #[test]
     fn class_inheritance() {

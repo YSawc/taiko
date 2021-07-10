@@ -29,7 +29,6 @@ fn repl() {
     let mut parser = Parser::new();
     let mut eval = Evaluator::new();
     eval.repl_init_method(parser.lexer.source_info.clone(), parser.ident_table.clone());
-    eval.repl_set_main();
     loop {
         let prompt = if program.len() == 0 { ">" } else { "*" };
         let readline = rl.readline(&format!("irb:{} ", prompt).to_string());
