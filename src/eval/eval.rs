@@ -112,6 +112,10 @@ impl Evaluator {
         }
     }
 
+    pub fn show_source(&mut self, node: &Node) {
+        self.source_info.show_loc(&node.loc);
+    }
+
     pub fn init(&mut self, source_info: SourceInfo, ident_table: IdentifierTable) {
         self.repl_init_method(source_info, ident_table);
     }
@@ -177,7 +181,6 @@ impl Evaluator {
         match receiver {
             Value::Class(class_ref) => {
                 let instance = self.new_instance(class_ref);
-                self.env.push(Env::ClassRef(class_ref));
                 Value::Instance(instance)
             }
             _ => unimplemented!(),
@@ -335,23 +338,22 @@ impl Evaluator {
     }
 
     pub fn eval_node(&mut self, node: &Node) -> EvalResult {
-        // println!("{:?}", node.kind);
         match &node.kind {
             NodeKind::Number(num) => Ok(Value::FixNum(*num)),
             NodeKind::DecimalNumber(decimal_num) => Ok(Value::FixDecimalNum(*decimal_num)),
             NodeKind::String(s) => Ok(Value::String(s.to_string())),
             NodeKind::SelfValue => {
-                let classref = self
-                    .class_stack
-                    .last()
-                    .unwrap_or_else(|| panic!("Evaluator#eval: class stack is empty"));
+                let classref = self.class_stack.last().unwrap_or_else(|| {
+                    self.clone().show_source(node);
+                    panic!("Evaluator#eval: class stack is empty");
+                });
                 Ok(Value::Class(*classref))
             }
             NodeKind::Ident(id) => match self.lvar_table().get(id) {
                 Some(val) => Ok(val.clone()),
                 None => {
                     self.source_info.show_loc(&node.loc);
-                    println!("{:?}", self.lvar_table());
+                    self.show_source(node);
                     panic!("undefined local variable.")
                 }
             },
@@ -359,7 +361,7 @@ impl Evaluator {
                 Some(val) => Ok(val.clone()),
                 None => {
                     self.source_info.show_loc(&node.loc());
-                    println!("{:?}", self.lvar_table());
+                    self.clone().show_source(node);
                     panic!("NameError: uninitialized constant.");
                 }
             },
@@ -375,7 +377,10 @@ impl Evaluator {
                     let value = self.eval_node(&(*vec)[*num as usize])?;
                     Ok(value)
                 }
-                _ => unimplemented!(),
+                _ => {
+                    self.clone().show_source(node);
+                    unimplemented!();
+                }
             },
             NodeKind::BinOp(op, lhs, rhs) => {
                 match op {
@@ -430,7 +435,10 @@ impl Evaluator {
                     BinOp::GT => self.eval_gt(lhs, rhs),
                     BinOp::LE => self.eval_ge(rhs, lhs),
                     BinOp::LT => self.eval_gt(rhs, lhs),
-                    _ => unimplemented!("{:?}", op),
+                    _ => {
+                        self.clone().show_source(node);
+                        unimplemented!("{:?}", op);
+                    }
                 }
             }
             NodeKind::Assign(lhs, rhs) => match lhs.kind {
@@ -495,13 +503,15 @@ impl Evaluator {
                             }
                         }
                         Env::InstanceRef(r) => {
-                            let class_var = self.class_info_with_instance(r).class_var.get_mut(&id);
+                            let class_info = self.class_info_with_instance(r);
+                            let class_var = class_info.class_var.get_mut(&id);
                             match class_var {
                                 Some(val) => {
                                     *val = rhs;
                                     Ok(val.to_owned())
                                 }
                                 None => {
+                                    self.clone().show_source(node);
                                     panic!("This class variable not defined. {:?}", id);
                                 }
                             }
@@ -520,7 +530,10 @@ impl Evaluator {
                     }
                     Ok(rhs)
                 }
-                _ => unimplemented!(),
+                _ => {
+                    self.show_source(node);
+                    unimplemented!();
+                }
             },
             NodeKind::CompStmt(nodes) => {
                 let mut val = Value::Nil;
@@ -568,9 +581,13 @@ impl Evaluator {
             NodeKind::Send(receiver, method, args) => {
                 let id = match method.kind {
                     NodeKind::Ident(id) => id,
-                    _ => unimplemented!("method must be identifer."),
+                    _ => {
+                        self.show_source(node);
+                        unimplemented!("method must be identifer.");
+                    }
                 };
                 let receiver = self.eval_node(receiver)?;
+                let f = self.push_env(receiver.clone());
                 let args_val: Vec<Value> = args
                     .args
                     .iter()
@@ -583,7 +600,6 @@ impl Evaluator {
                         body,
                         local_scope,
                     } => {
-                        let updated_flag = self.update_env_if_instance(receiver);
                         let args_value_len = args.args.len();
                         self.scope_stack.push(local_scope);
                         for (i, param) in params.iter().enumerate() {
@@ -599,13 +615,12 @@ impl Evaluator {
                                 };
                                 self.lvar_table().insert(param_id, arg);
                             } else {
+                                self.show_source(node);
                                 unimplemented!("Illegal parameter.");
                             }
                         }
                         let val = self.eval_node(&body);
-                        if updated_flag {
-                            self.env.pop().unwrap();
-                        }
+                        self.pop_env_if_true(f);
                         self.scope_stack.pop();
                         val
                     }
@@ -617,24 +632,40 @@ impl Evaluator {
                             value: args_val,
                             table: table.to_owned(),
                         };
+                        self.pop_env_if_true(f);
                         Ok(func(self, receiver, args))
                     }
                 }
             }
             NodeKind::InstanceVar(id) => match self.env() {
                 Env::InstanceRef(r) => Ok(self.instance_value(r, *id)),
-                _ => unimplemented!(),
+                _ => {
+                    self.show_source(node);
+                    unimplemented!();
+                }
             },
             NodeKind::ClassVar(id) => match self.env() {
                 Env::ClassRef(r) => Ok(self.class_value(r, *id)),
                 Env::InstanceRef(r) => Ok(self.class_value_with_instance(r, *id)),
             },
-            _ => unimplemented!("{:?}", node.kind),
+            _ => {
+                self.show_source(node);
+                unimplemented!("{:?}", node.kind);
+            }
         }
     }
 
     fn class_info_with_ref(&mut self, class_ref: ClassRef) -> &mut ClassInfo {
         self.class_table.table.get_mut(&class_ref).unwrap()
+    }
+
+    fn class_info_with_id(&mut self, ident_id: IdentId) -> ClassInfo {
+        for t in self.class_table.table.to_owned() {
+            if t.1.id == ident_id {
+                return t.1;
+            }
+        }
+        unimplemented!()
     }
 
     fn class_ref_with_id(&mut self, ident_id: IdentId) -> ClassRef {
@@ -684,14 +715,6 @@ impl Evaluator {
             .to_owned()
     }
 
-    fn update_env_if_instance(&mut self, receiver: Value) -> bool {
-        if let Value::Instance(id) = receiver {
-            self.env.push(Env::InstanceRef(id));
-            return true;
-        }
-        false
-    }
-
     fn add_subclass(&mut self, info: ClassRef, inheritence_class_id: Option<IdentId>) {
         if let Some(inheritence_class_id) = inheritence_class_id {
             let class = self.class_info_with_ref(info);
@@ -704,12 +727,12 @@ impl Evaluator {
     fn get_method_info(&mut self, id: IdentId) -> MethodInfo {
         for env in self.env.clone().iter_mut().rev() {
             let r = match env {
-                Env::ClassRef(ClassRef(r)) => *r,
+                Env::ClassRef(ClassRef(r)) => *self.class_info_with_ref(ClassRef(*r)).id,
                 Env::InstanceRef(InstanceRef(r)) => {
                     *self.class_info_with_instance(InstanceRef(*r)).id
                 }
             };
-            let class_ref = self.class_info_with_ref(ClassRef(r)).clone();
+            let class_ref = self.class_info_with_id(IdentId(r)).clone();
             match class_ref.method_table.get(&id) {
                 Some(info) => return info.to_owned(),
                 None => {
@@ -722,6 +745,26 @@ impl Evaluator {
             }
         }
         unimplemented!("undefined function.");
+    }
+
+    fn push_env(&mut self, val: Value) -> bool {
+        match val {
+            Value::Class(r) => {
+                self.env.push(Env::ClassRef(r));
+                true
+            }
+            Value::Instance(r) => {
+                self.env.push(Env::InstanceRef(r));
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn pop_env_if_true(&mut self, b: bool) {
+        if b {
+            self.env.pop().unwrap();
+        }
     }
 
     fn eval_add(&mut self, lhs: Value, rhs: Value) -> EvalResult {
