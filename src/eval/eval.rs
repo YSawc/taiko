@@ -288,7 +288,7 @@ impl Evaluator {
                 for key in self.instance_ref(instance_ref).instance_var.clone().keys() {
                     names.push(Value::String(format!(
                         "@{}",
-                        self.ident_table.table_rev.get_mut(key).unwrap()
+                        self.ident_table.get_name(*key)
                     )));
                 }
                 Value::Array(names)

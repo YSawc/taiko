@@ -51,7 +51,6 @@ impl std::hash::Hash for IdentId {
 #[derive(Debug, Clone, PartialEq)]
 pub struct IdentifierTable {
     pub table: FxHashMap<String, usize>,
-    pub table_rev: FxHashMap<usize, String>,
     ident_id: usize,
 }
 
@@ -65,7 +64,6 @@ impl IdentifierTable {
     pub fn new() -> Self {
         Self {
             table: FxHashMap::default(),
-            table_rev: FxHashMap::default(),
             ident_id: 0,
         }
     }
@@ -76,7 +74,6 @@ impl IdentifierTable {
             None => {
                 let id = self.ident_id;
                 self.table.insert(name.to_string(), id);
-                self.table_rev.insert(id, name.to_string());
                 self.ident_id += 1;
                 IdentId(id)
             }
@@ -84,6 +81,11 @@ impl IdentifierTable {
     }
 
     pub fn get_name(&mut self, id: IdentId) -> &String {
-        self.table_rev.get(&id).unwrap()
+        for (k, v) in self.table.iter() {
+            if *v == id.0 {
+                return k;
+            }
+        }
+        unimplemented!();
     }
 }
