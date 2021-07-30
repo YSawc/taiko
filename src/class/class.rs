@@ -1,7 +1,7 @@
-use crate::eval::eval::*;
 use crate::node::node::*;
 use crate::util::util::*;
 use crate::value::value::*;
+use crate::vm::vm::*;
 use rustc_hash::FxHashMap;
 
 #[derive(Debug, Clone)]

@@ -3,7 +3,6 @@ use crate::node::node::*;
 use crate::token::token::*;
 use crate::util::annot::*;
 use crate::util::util::*;
-use crate::value::value::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Parser {
@@ -515,6 +514,7 @@ impl Parser {
             let mut args = ParsedArgs::new();
             args.args = self.parse_parenthesize_args()?;
             let end_loc = self.loc();
+            println!("node: {:?}", node);
 
             return Ok(Node::new_send(
                 Node::new(NodeKind::SelfValue, loc),
@@ -710,7 +710,7 @@ impl Parser {
                 if self.is_first_line_context() {
                     let contents = self.parse_box_brackets_contents()?;
                     let end_loc = self.loc();
-                    let node = Node::new_vec(contents, loc.merge(end_loc));
+                    let node = Node::new_array(contents, loc.merge(end_loc));
                     Ok(node)
                 } else {
                     unimplemented!();
@@ -761,6 +761,14 @@ impl Parser {
         self.reset_line_context();
 
         Ok(Node::new_class_decl(id, body, inheritance_class_id))
+    }
+
+    pub fn parse_line(&mut self) -> Result<Node, ParseError> {
+        let loc = self.loc();
+        match &self.get().kind {
+            TokenKind::Line => Ok(Node::new_line(loc)),
+            _ => Err(self.error_unexpected(loc)),
+        }
     }
 
     pub fn parse_const(&mut self) -> Result<String, ParseError> {
@@ -857,36 +865,6 @@ impl Parser {
                 Ok(Node::new_identifier(id, tok.loc()))
             }
             _ => Err(self.error_unexpected(loc)),
-        }
-    }
-
-    pub fn eval_node(node: &Node) -> Value {
-        macro_rules! value_arithmetic {
-            ($lhs:expr, $rhs:expr, $tt:tt) => {
-                    let lhs = Parser::eval_node($lhs);
-                    let rhs = Parser::eval_node($rhs);
-                    match (lhs, rhs) {
-                        (Value::FixNum(lhs), Value::FixNum(rhs)) => Value::FixNum(lhs $tt rhs),
-                        (_, _) => unimplemented!(),
-                    }
-            }
-        }
-
-        match &node.kind {
-            NodeKind::Number(num) => Value::FixNum(*num),
-            NodeKind::Add(lhs, rhs) => {
-                value_arithmetic! { lhs, rhs, + }
-            }
-            NodeKind::Sub(lhs, rhs) => {
-                value_arithmetic! { lhs, rhs, - }
-            }
-            NodeKind::Mul(lhs, rhs) => {
-                value_arithmetic! { lhs, rhs, * }
-            }
-            NodeKind::Div(lhs, rhs) => {
-                value_arithmetic! { lhs, rhs, / }
-            }
-            _ => unimplemented!(),
         }
     }
 }

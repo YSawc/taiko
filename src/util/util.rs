@@ -80,10 +80,10 @@ impl IdentifierTable {
         }
     }
 
-    pub fn get_name(&mut self, id: IdentId) -> &String {
+    pub fn get_name(&mut self, id: IdentId) -> String {
         for (k, v) in self.table.iter() {
             if *v == id.0 {
-                return k;
+                return k.to_string();
             }
         }
         unimplemented!();

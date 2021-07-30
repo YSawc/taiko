@@ -1,19 +1,20 @@
 use crate::node::node::*;
+use crate::util::util::*;
 use crate::value::value::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Args {
-    pub node: Node,
-    pub value: Vec<Value>,
-    pub table: Node,
+    pub body: u8,
+    pub args: Vec<Value>,
+    pub table: u8,
 }
 
 impl Args {
     pub fn new() -> Self {
         Self {
-            node: Node::new_none(),
-            value: vec![],
-            table: Node::new_none(),
+            body: 0,
+            args: vec![],
+            table: 0,
         }
     }
 }
