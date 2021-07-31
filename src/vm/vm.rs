@@ -233,7 +233,8 @@ impl VM {
 
     //                 if let NodeKind::Ident(id) = args.table.kind {
     //                     let imm_value = Value::FixNum(i);
-    //                     self.lvar_table_as_mut().insert(id, imm_value);
+    //                     let val = args.table as u8;
+    //                     self.lvar_table_as_mut().insert(val, imm_value);
     //                 }
 
     //                 self.eval_seq().unwrap_or_else(|err| {
@@ -271,12 +272,6 @@ impl VM {
             Value::Array(contents) => {
                 for c in contents {
                     self.new_propagated_local_var_stack();
-                    // match args.table {
-                    //     Value::FixNum(id) => {
-                    //         self.lvar_table_as_mut().insert(id, c);
-                    //     }
-                    //     _ => (),
-                    // };
                     self.lvar_table_as_mut()
                         .insert(IdentId(args.table.into()), c);
                     self.eval_seq().unwrap_or_else(|err| {
@@ -321,10 +316,10 @@ impl VM {
         self.scope_stack.last_mut().unwrap()
     }
 
-    fn new_class_info(&mut self, id: IdentId, body: Node) -> ClassRef {
-        let name = self.ident_table.get_name(id).clone();
-        self.class_table.new_class(id, name, body)
-    }
+    // fn new_class_info(&mut self, id: IdentId, body: Node) -> ClassRef {
+    //     let name = self.ident_table.get_name(id).clone();
+    //     self.class_table.new_class(id, name, body)
+    // }
 
     fn new_propagated_local_var_stack(&mut self) {
         let mut last_scope_stack = self.scope_stack.last().unwrap().to_owned();
@@ -566,29 +561,29 @@ impl VM {
                 //         }
                 //     }
                 // }
-                // Inst::ARRAY => {
-                //     self.stack_pos += 1;
-                //     let arr = self.get_array();
-                //     self.exec_stack.push(Value::Array(arr));
-                // }
-                // Inst::ARRAY_INDEX => {
-                //     self.stack_pos += 1;
-                //     let idx = self.exec_stack().value() as usize;
-                //     match self.exec_stack() {
-                //         Value::Array(arr) => {
-                //             let val = arr[idx];
-                //             Ok(val)
-                //         }
-                //         _ => unreachable!(),
-                //     }
-                // }
+                Inst::ARRAY => {
+                    self.stack_pos += 1;
+                    let arr = self.get_array();
+                    self.exec_stack.push(Value::Array(arr));
+                }
+                Inst::ARRAY_INDEX => {
+                    self.stack_pos += 1;
+                    let idx = self.exec_stack().value() as usize;
+                    match self.exec_stack() {
+                        Value::Array(arr) => {
+                            let val = arr[idx].clone();
+                            self.exec_stack.push(val);
+                        }
+                        _ => unreachable!(),
+                    }
+                }
                 _ => unimplemented!(),
             }
         }
     }
 
     pub fn eval(&mut self) -> EvalResult {
-        self.eval_seq();
+        self.eval_seq()?;
         Ok(self.exec_stack())
     }
 
@@ -949,28 +944,28 @@ impl VM {
         self.class_table.table.get_mut(&class_ref).unwrap()
     }
 
-    fn class_info_with_id(&mut self, ident_id: IdentId) -> ClassInfo {
-        for t in self.class_table.table.to_owned() {
-            if t.1.id == ident_id {
-                return t.1;
-            }
-        }
-        unimplemented!()
-    }
+    // fn class_info_with_id(&mut self, ident_id: IdentId) -> ClassInfo {
+    //     for t in self.class_table.table.to_owned() {
+    //         if t.1.id == ident_id {
+    //             return t.1;
+    //         }
+    //     }
+    //     unimplemented!()
+    // }
 
-    fn class_ref_with_id(&mut self, ident_id: IdentId) -> ClassRef {
-        for t in self.class_table.table.to_owned() {
-            if t.1.id == ident_id {
-                return t.0;
-            }
-        }
-        unimplemented!()
-    }
+    // fn class_ref_with_id(&mut self, ident_id: IdentId) -> ClassRef {
+    //     for t in self.class_table.table.to_owned() {
+    //         if t.1.id == ident_id {
+    //             return t.0;
+    //         }
+    //     }
+    //     unimplemented!()
+    // }
 
-    fn class_info_with_instance(&mut self, instance_ref: InstanceRef) -> &mut ClassInfo {
-        let class_ref = self.instance_ref(instance_ref).class_id;
-        self.class_info_with_ref(class_ref)
-    }
+    // fn class_info_with_instance(&mut self, instance_ref: InstanceRef) -> &mut ClassInfo {
+    //     let class_ref = self.instance_ref(instance_ref).class_id;
+    //     self.class_info_with_ref(class_ref)
+    // }
 
     fn class_ref_with_instance(&mut self, instance_ref: InstanceRef) -> ClassRef {
         self.instance_ref(instance_ref).class_id
@@ -980,82 +975,82 @@ impl VM {
         self.instance_table.get_mut(instance_ref)
     }
 
-    fn instance_value(&mut self, instance_ref: InstanceRef, id: IdentId) -> Value {
-        self.instance_table
-            .get_mut(instance_ref)
-            .instance_var
-            .get(&id)
-            .unwrap()
-            .to_owned()
-    }
+    // fn instance_value(&mut self, instance_ref: InstanceRef, id: IdentId) -> Value {
+    //     self.instance_table
+    //         .get_mut(instance_ref)
+    //         .instance_var
+    //         .get(&id)
+    //         .unwrap()
+    //         .to_owned()
+    // }
 
-    fn class_value(&mut self, class_ref: ClassRef, id: IdentId) -> Value {
-        self.class_info_with_ref(class_ref)
-            .class_var
-            .get_mut(&id)
-            .unwrap()
-            .to_owned()
-    }
+    // fn class_value(&mut self, class_ref: ClassRef, id: IdentId) -> Value {
+    //     self.class_info_with_ref(class_ref)
+    //         .class_var
+    //         .get_mut(&id)
+    //         .unwrap()
+    //         .to_owned()
+    // }
 
-    fn class_value_with_instance(&mut self, instance_ref: InstanceRef, id: IdentId) -> Value {
-        self.class_info_with_instance(instance_ref)
-            .class_var
-            .get_mut(&id)
-            .unwrap()
-            .to_owned()
-    }
+    // fn class_value_with_instance(&mut self, instance_ref: InstanceRef, id: IdentId) -> Value {
+    //     self.class_info_with_instance(instance_ref)
+    //         .class_var
+    //         .get_mut(&id)
+    //         .unwrap()
+    //         .to_owned()
+    // }
 
-    fn add_subclass(&mut self, info: ClassRef, inheritence_class_id: Option<IdentId>) {
-        if let Some(inheritence_class_id) = inheritence_class_id {
-            let class = self.class_info_with_ref(info);
-            class
-                .subclass
-                .insert(inheritence_class_id, ClassRef(*inheritence_class_id + 1));
-        }
-    }
+    // fn add_subclass(&mut self, info: ClassRef, inheritence_class_id: Option<IdentId>) {
+    //     if let Some(inheritence_class_id) = inheritence_class_id {
+    //         let class = self.class_info_with_ref(info);
+    //         class
+    //             .subclass
+    //             .insert(inheritence_class_id, ClassRef(*inheritence_class_id + 1));
+    //     }
+    // }
 
-    fn get_method_info(&mut self, id: IdentId) -> MethodInfo {
-        for env in self.env.clone().iter_mut().rev() {
-            let r = match env {
-                Env::ClassRef(ClassRef(r)) => *self.class_info_with_ref(ClassRef(*r)).id,
-                Env::InstanceRef(InstanceRef(r)) => {
-                    *self.class_info_with_instance(InstanceRef(*r)).id
-                }
-            };
-            let class_ref = self.class_info_with_id(IdentId(r)).clone();
-            match class_ref.method_table.get(&id) {
-                Some(info) => return info.to_owned(),
-                None => {
-                    for r in class_ref.subclass.values() {
-                        if let Some(info) = self.class_info_with_ref(*r).method_table.get(&id) {
-                            return info.to_owned();
-                        }
-                    }
-                }
-            }
-        }
-        unimplemented!("undefined function.");
-    }
+    // fn get_method_info(&mut self, id: IdentId) -> MethodInfo {
+    //     for env in self.env.clone().iter_mut().rev() {
+    //         let r = match env {
+    //             Env::ClassRef(ClassRef(r)) => *self.class_info_with_ref(ClassRef(*r)).id,
+    //             Env::InstanceRef(InstanceRef(r)) => {
+    //                 *self.class_info_with_instance(InstanceRef(*r)).id
+    //             }
+    //         };
+    //         let class_ref = self.class_info_with_id(IdentId(r)).clone();
+    //         match class_ref.method_table.get(&id) {
+    //             Some(info) => return info.to_owned(),
+    //             None => {
+    //                 for r in class_ref.subclass.values() {
+    //                     if let Some(info) = self.class_info_with_ref(*r).method_table.get(&id) {
+    //                         return info.to_owned();
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     unimplemented!("undefined function.");
+    // }
 
-    fn push_env(&mut self, val: Value) -> bool {
-        match val {
-            Value::Class(r) => {
-                self.env.push(Env::ClassRef(r));
-                true
-            }
-            Value::Instance(r) => {
-                self.env.push(Env::InstanceRef(r));
-                true
-            }
-            _ => false,
-        }
-    }
+    // fn push_env(&mut self, val: Value) -> bool {
+    //     match val {
+    //         Value::Class(r) => {
+    //             self.env.push(Env::ClassRef(r));
+    //             true
+    //         }
+    //         Value::Instance(r) => {
+    //             self.env.push(Env::InstanceRef(r));
+    //             true
+    //         }
+    //         _ => false,
+    //     }
+    // }
 
-    fn pop_env_if_true(&mut self, b: bool) {
-        if b {
-            self.env.pop().unwrap();
-        }
-    }
+    // fn pop_env_if_true(&mut self, b: bool) {
+    //     if b {
+    //         self.env.pop().unwrap();
+    //     }
+    // }
 
     fn eval_add(&mut self, lhs: Value, rhs: Value) -> EvalResult {
         match (lhs, rhs) {

@@ -1,4 +1,5 @@
 use crate::node::node::*;
+// use crate::value::value::*;
 use crate::vm::inst::*;
 use crate::vm::vm::*;
 
@@ -6,7 +7,7 @@ impl VM {
     pub fn gen(&mut self, node: &Node) {
         match &node.kind {
             NodeKind::None => self.iseq.push(Inst::NIL),
-            NodeKind::Number(num) => self.gen_comp_usize(*num),
+            NodeKind::Number(num) => self.gen_comp_fixnum(*num),
             NodeKind::BinOp(op, lhs, rhs) => match op {
                 BinOp::Add => {
                     self.gen(lhs);
@@ -69,10 +70,17 @@ impl VM {
                     self.iseq.push(Inst::LOR)
                 }
             },
-            NodeKind::CompStmt(nodes) => {
-                for node in nodes {
-                    self.gen(&node)
-                }
+            NodeKind::CompStmt(nodes) => self.gen_nodes(nodes.to_vec()),
+            NodeKind::Array(nodes) => {
+                self.gen_nodes(nodes.to_vec());
+                let len = nodes.len();
+                self.gen_comp_usize(len);
+                self.iseq.push(Inst::ARRAY)
+            }
+            NodeKind::ArrayIndex(nodes, num) => {
+                self.gen(nodes);
+                self.gen_comp_fixnum(*num);
+                self.iseq.push(Inst::ARRAY_INDEX);
             }
             // NodeKind::If(cond_, then_, else_) => {
             //     self.gen(&cond_)?;
@@ -132,15 +140,26 @@ impl VM {
         }
     }
 
-    fn gen_comp_usize(&mut self, num: i64) {
+    fn gen_nodes(&mut self, nodes: Vec<Node>) {
+        for node in nodes.clone() {
+            self.gen(&node);
+        }
+    }
+
+    fn gen_comp_fixnum(&mut self, num: i64) {
         self.iseq.push(Inst::FIXNUM);
-        self.iseq.push((num << 56) as u8);
-        self.iseq.push((num << 48) as u8);
-        self.iseq.push((num << 40) as u8);
-        self.iseq.push((num << 32) as u8);
-        self.iseq.push((num << 24) as u8);
-        self.iseq.push((num << 16) as u8);
-        self.iseq.push((num << 8) as u8);
+        self.iseq.push((num >> 56) as u8);
+        self.iseq.push((num >> 48) as u8);
+        self.iseq.push((num >> 40) as u8);
+        self.iseq.push((num >> 32) as u8);
+        self.iseq.push((num >> 24) as u8);
+        self.iseq.push((num >> 16) as u8);
+        self.iseq.push((num >> 8) as u8);
         self.iseq.push(num as u8);
+    }
+
+    fn gen_comp_usize(&mut self, num: usize) {
+        let num = num as i64;
+        self.gen_comp_fixnum(num);
     }
 }
