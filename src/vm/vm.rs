@@ -6,13 +6,14 @@ use crate::util::annot::*;
 use crate::util::util::*;
 use crate::value::value::*;
 use crate::vm::inst::*;
+use crate::vm::stack::*;
 use rustc_hash::FxHashMap;
 
 pub type ISeq = u8;
 
 #[derive(Debug, Clone)]
 pub struct VM {
-    pub iseq: Vec<ISeq>,
+    pub stack: Stack,
     pub stack_pos: usize,
     pub exec_stack: Vec<Value>,
     pub source_info: SourceInfo,
@@ -105,7 +106,7 @@ pub enum RuntimeErrorKind {
 impl VM {
     pub fn new() -> Self {
         Self {
-            iseq: vec![],
+            stack: Stack::new(),
             stack_pos: 0,
             exec_stack: vec![],
             source_info: SourceInfo::new(),
@@ -329,24 +330,24 @@ impl VM {
 
     pub fn init_iseq(&mut self, node: Node) {
         self.gen(&node);
-        self.iseq.push(Inst::END);
-        println!("iseq: {:?}", self.iseq);
+        self.stack.iseq.push(Inst::END);
+        println!("{:?}", self.stack.iseq);
     }
 
     fn get_val(&mut self) -> usize {
-        match self.iseq[self.stack_pos] {
+        match self.stack.iseq[self.stack_pos] {
             Inst::FIXNUM => self.stack_pos += 1,
             _ => unimplemented!(),
         }
         let mut num = 0;
-        num += (self.iseq[self.stack_pos] as usize) << 56;
-        num += (self.iseq[self.stack_pos + 1] as usize) << 48;
-        num += (self.iseq[self.stack_pos + 2] as usize) << 40;
-        num += (self.iseq[self.stack_pos + 3] as usize) << 32;
-        num += (self.iseq[self.stack_pos + 4] as usize) << 24;
-        num += (self.iseq[self.stack_pos + 5] as usize) << 16;
-        num += (self.iseq[self.stack_pos + 6] as usize) << 8;
-        num += self.iseq[self.stack_pos + 7] as usize;
+        num += (self.stack.iseq[self.stack_pos] as usize) << 56;
+        num += (self.stack.iseq[self.stack_pos + 1] as usize) << 48;
+        num += (self.stack.iseq[self.stack_pos + 2] as usize) << 40;
+        num += (self.stack.iseq[self.stack_pos + 3] as usize) << 32;
+        num += (self.stack.iseq[self.stack_pos + 4] as usize) << 24;
+        num += (self.stack.iseq[self.stack_pos + 5] as usize) << 16;
+        num += (self.stack.iseq[self.stack_pos + 6] as usize) << 8;
+        num += self.stack.iseq[self.stack_pos + 7] as usize;
         self.stack_pos += 8;
         num as usize
     }
@@ -379,11 +380,11 @@ impl VM {
 
     pub fn eval_seq(&mut self) -> Result<(), RuntimeError> {
         loop {
-            println!(
-                "self.stack.iseq[self.stack_pos]: {}",
-                self.iseq[self.stack_pos]
-            );
-            match self.iseq[self.stack_pos] {
+            // println!(
+            //     "self.stack.iseq[self.stack_pos]: {}",
+            //     self.stack.iseq[self.stack_pos]
+            // );
+            match self.stack.iseq[self.stack_pos] {
                 Inst::NIL => {
                     self.stack_pos += 1;
                     self.exec_stack.push(Value::Nil);
@@ -410,8 +411,8 @@ impl VM {
                 }
                 Inst::STRING => {
                     self.stack_pos += 1;
-                    let id = self.get_val();
-                    let name = self.ident_table.get_name(IdentId(id));
+                    let id = self.exec_stack().ident();
+                    let name = self.stack.ident_table.get_name(IdentId(*id));
                     self.env_info().ident_table.get_ident_id(&name);
                     let val = Value::String(name);
                     self.exec_stack.push(val);

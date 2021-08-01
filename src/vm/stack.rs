@@ -1,73 +1,93 @@
 use crate::node::node::*;
-// use crate::value::value::*;
+use crate::util::util::*;
 use crate::vm::inst::*;
 use crate::vm::vm::*;
+
+#[derive(Debug, Clone)]
+pub struct Stack {
+    pub iseq: Vec<u8>,
+    pub ident_table: IdentifierTable,
+}
+
+impl Stack {
+    pub fn new() -> Self {
+        Self {
+            iseq: vec![],
+            ident_table: IdentifierTable::default(),
+        }
+    }
+}
 
 impl VM {
     pub fn gen(&mut self, node: &Node) {
         match &node.kind {
-            NodeKind::None => self.iseq.push(Inst::NIL),
+            NodeKind::None => self.stack.iseq.push(Inst::NIL),
             NodeKind::Number(num) => self.gen_comp_fixnum(*num),
+            NodeKind::String(s) => {
+                let id = self.stack.ident_table.get_ident_id(s);
+                self.gen_comp_usize(*id);
+                self.stack.iseq.push(Inst::STRING);
+            }
             NodeKind::BinOp(op, lhs, rhs) => match op {
                 BinOp::Add => {
                     self.gen(lhs);
                     self.gen(rhs);
-                    self.iseq.push(Inst::ADD);
+                    self.stack.iseq.push(Inst::ADD);
                 }
                 BinOp::Sub => {
                     self.gen(lhs);
                     self.gen(rhs);
-                    self.iseq.push(Inst::SUB);
+                    self.stack.iseq.push(Inst::SUB);
                 }
                 BinOp::Mul => {
                     self.gen(lhs);
                     self.gen(rhs);
-                    self.iseq.push(Inst::MUL);
+                    self.stack.iseq.push(Inst::MUL);
                 }
                 BinOp::Div => {
                     self.gen(lhs);
                     self.gen(rhs);
-                    self.iseq.push(Inst::DIV)
+                    self.stack.iseq.push(Inst::DIV)
                 }
                 BinOp::Eq => {
                     self.gen(lhs);
                     self.gen(rhs);
-                    self.iseq.push(Inst::EQ)
+                    self.stack.iseq.push(Inst::EQ)
                 }
                 BinOp::Ne => {
                     self.gen(lhs);
                     self.gen(rhs);
-                    self.iseq.push(Inst::NE)
+                    self.stack.iseq.push(Inst::NE)
                 }
                 BinOp::GT => {
                     self.gen(lhs);
                     self.gen(rhs);
-                    self.iseq.push(Inst::GT)
+                    self.stack.iseq.push(Inst::GT)
                 }
                 BinOp::GE => {
                     self.gen(lhs);
                     self.gen(rhs);
-                    self.iseq.push(Inst::GE)
+                    self.stack.iseq.push(Inst::GE)
                 }
                 BinOp::LT => {
                     self.gen(lhs);
                     self.gen(rhs);
-                    self.iseq.push(Inst::LT)
+                    self.stack.iseq.push(Inst::LT)
                 }
                 BinOp::LE => {
                     self.gen(lhs);
                     self.gen(rhs);
-                    self.iseq.push(Inst::LE)
+                    self.stack.iseq.push(Inst::LE)
                 }
                 BinOp::LAnd => {
                     self.gen(lhs);
                     self.gen(rhs);
-                    self.iseq.push(Inst::LAND)
+                    self.stack.iseq.push(Inst::LAND)
                 }
                 BinOp::LOr => {
                     self.gen(lhs);
                     self.gen(rhs);
-                    self.iseq.push(Inst::LOR)
+                    self.stack.iseq.push(Inst::LOR)
                 }
             },
             NodeKind::CompStmt(nodes) => self.gen_nodes(nodes.to_vec()),
@@ -75,12 +95,12 @@ impl VM {
                 self.gen_nodes(nodes.to_vec());
                 let len = nodes.len();
                 self.gen_comp_usize(len);
-                self.iseq.push(Inst::ARRAY)
+                self.stack.iseq.push(Inst::ARRAY)
             }
             NodeKind::ArrayIndex(nodes, num) => {
                 self.gen(nodes);
                 self.gen_comp_fixnum(*num);
-                self.iseq.push(Inst::ARRAY_INDEX);
+                self.stack.iseq.push(Inst::ARRAY_INDEX);
             }
             // NodeKind::If(cond_, then_, else_) => {
             //     self.gen(&cond_)?;
@@ -147,15 +167,15 @@ impl VM {
     }
 
     fn gen_comp_fixnum(&mut self, num: i64) {
-        self.iseq.push(Inst::FIXNUM);
-        self.iseq.push((num >> 56) as u8);
-        self.iseq.push((num >> 48) as u8);
-        self.iseq.push((num >> 40) as u8);
-        self.iseq.push((num >> 32) as u8);
-        self.iseq.push((num >> 24) as u8);
-        self.iseq.push((num >> 16) as u8);
-        self.iseq.push((num >> 8) as u8);
-        self.iseq.push(num as u8);
+        self.stack.iseq.push(Inst::FIXNUM);
+        self.stack.iseq.push((num >> 56) as u8);
+        self.stack.iseq.push((num >> 48) as u8);
+        self.stack.iseq.push((num >> 40) as u8);
+        self.stack.iseq.push((num >> 32) as u8);
+        self.stack.iseq.push((num >> 24) as u8);
+        self.stack.iseq.push((num >> 16) as u8);
+        self.stack.iseq.push((num >> 8) as u8);
+        self.stack.iseq.push(num as u8);
     }
 
     fn gen_comp_usize(&mut self, num: usize) {

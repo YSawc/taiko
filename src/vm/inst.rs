@@ -8,9 +8,9 @@ impl Inst {
     pub const FIXNUM: u8 = 4;
     pub const DECIMALNUM: u8 = 5;
     pub const BOOL: u8 = 6;
-    pub const STRING: u8 = 6;
-    pub const ARRAY: u8 = 7;
-    pub const ARRAY_INDEX: u8 = 8;
+    pub const STRING: u8 = 7;
+    pub const ARRAY: u8 = 8;
+    pub const ARRAY_INDEX: u8 = 9;
 
     pub const ADD: u8 = 40;
     pub const SUB: u8 = 41;
