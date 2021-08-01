@@ -19,6 +19,7 @@ impl Value {
     pub fn value(&mut self) -> i64 {
         match self {
             Value::FixNum(num) => *num,
+            Value::Nil => 0,
             _ => unimplemented!("Non value detected."),
         }
     }

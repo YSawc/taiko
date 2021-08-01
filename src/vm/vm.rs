@@ -389,24 +389,21 @@ impl VM {
                     self.stack_pos += 1;
                     self.exec_stack.push(Value::Nil);
                 }
+                Inst::SELF_VALUE => {
+                    self.stack_pos += 1;
+                    let val = self.class_stack();
+                    self.exec_stack.push(val);
+                }
                 Inst::END => {
                     if let Some(val) = self.exec_stack.pop() {
-                        // return Ok(val);
                         self.exec_stack.push(val);
                     } else {
-                        // return Ok(Value::Nil);
                         self.exec_stack.push(Value::Nil);
                     }
                     return Ok(());
                 }
-                // Inst::FIXNUM => Ok(Value::FixNum(self.get_val() as i64)),
                 Inst::FIXNUM => {
                     let val = self.push_fixnum();
-                    self.exec_stack.push(val);
-                }
-                Inst::SELF_VALUE => {
-                    self.stack_pos += 1;
-                    let val = self.class_stack();
                     self.exec_stack.push(val);
                 }
                 Inst::STRING => {
@@ -520,48 +517,47 @@ impl VM {
                 //     self.stack_pos += 1;
                 //     unimplemented!();
                 // }
-                // Inst::SEND => {
-                //     self.stack_pos += 1;
-                //     let args = self.get_array();
-                //     let body = self.exec_stack().value() as u8;
-                //     let table = self.exec_stack().value() as u8;
-                //     let id = self.exec_stack().ident();
-                //     let info = self.get_method_info(id);
-                //     let receiver = self.exec_stack();
-                //     let f = self.push_env(receiver);
-                //     self.push_env(receiver);
+                Inst::SEND => {
+                    self.stack_pos += 1;
+                    let args = self.get_array();
+                    let body = self.exec_stack().value() as u8;
+                    let table = self.exec_stack().value() as u8;
+                    let id = self.exec_stack().ident();
+                    let info = self.get_method_info(id);
+                    let receiver = self.exec_stack();
+                    let f = self.push_env(receiver.clone());
+                    self.push_env(receiver.clone());
 
-                //     match info {
-                //         MethodInfo::RubyFunc {
-                //             params,
-                //             body,
-                //             local_scope,
-                //         } => {
-                //             let args_len = args.len();
-                //             self.scope_stack.push(local_scope);
-                //             for (i, param) in params.iter().enumerate() {
-                //                 let arg = if args_len > i {
-                //                     args[i].clone()
-                //                 } else {
-                //                     Value::Nil
-                //                 };
-                //                 // self.lvar_table_as_mut().insert(param_id, arg);
-                //             }
-                //             self.pop_env_if_true(f);
-                //             self.scope_stack.pop();
-                //             let val = self.eval_seq(*body)?;
-                //             Ok(val)
-                //         }
-                //         MethodInfo::BuiltinFunc { func, .. } => {
-                //             // let node = &args.node; : body
-                //             // let table = &args.table;
-                //             let args = Args { body, args, table };
-                //             self.pop_env_if_true(f);
-                //             let val = func(self, receiver, args);
-                //             Ok(val)
-                //         }
-                //     }
-                // }
+                    match info {
+                        // MethodInfo::RubyFunc {
+                        //     params,
+                        //     body,
+                        //     local_scope,
+                        // } => {
+                        //     let args_len = args.len();
+                        //     self.scope_stack.push(local_scope);
+                        //     for (i, param) in params.iter().enumerate() {
+                        //         let arg = if args_len > i {
+                        //             args[i].clone()
+                        //         } else {
+                        //             Value::Nil
+                        //         };
+                        //         // self.lvar_table_as_mut().insert(param_id, arg);
+                        //     }
+                        //     self.pop_env_if_true(f);
+                        //     self.scope_stack.pop();
+                        //     let val = self.eval_seq(*body)?;
+                        //     Ok(val)
+                        // }
+                        MethodInfo::BuiltinFunc { func, .. } => {
+                            let args = Args { body, args, table };
+                            self.pop_env_if_true(f);
+                            let val = func(self, receiver, args);
+                            self.exec_stack.push(val);
+                        }
+                        _ => unimplemented!(),
+                    }
+                }
                 Inst::ARRAY => {
                     self.stack_pos += 1;
                     let arr = self.get_array();
@@ -945,14 +941,14 @@ impl VM {
         self.class_table.table.get_mut(&class_ref).unwrap()
     }
 
-    // fn class_info_with_id(&mut self, ident_id: IdentId) -> ClassInfo {
-    //     for t in self.class_table.table.to_owned() {
-    //         if t.1.id == ident_id {
-    //             return t.1;
-    //         }
-    //     }
-    //     unimplemented!()
-    // }
+    fn class_info_with_id(&mut self, ident_id: IdentId) -> ClassInfo {
+        for t in self.class_table.table.to_owned() {
+            if t.1.id == ident_id {
+                return t.1;
+            }
+        }
+        unimplemented!()
+    }
 
     // fn class_ref_with_id(&mut self, ident_id: IdentId) -> ClassRef {
     //     for t in self.class_table.table.to_owned() {
@@ -963,10 +959,10 @@ impl VM {
     //     unimplemented!()
     // }
 
-    // fn class_info_with_instance(&mut self, instance_ref: InstanceRef) -> &mut ClassInfo {
-    //     let class_ref = self.instance_ref(instance_ref).class_id;
-    //     self.class_info_with_ref(class_ref)
-    // }
+    fn class_info_with_instance(&mut self, instance_ref: InstanceRef) -> &mut ClassInfo {
+        let class_ref = self.instance_ref(instance_ref).class_id;
+        self.class_info_with_ref(class_ref)
+    }
 
     fn class_ref_with_instance(&mut self, instance_ref: InstanceRef) -> ClassRef {
         self.instance_ref(instance_ref).class_id
@@ -1010,48 +1006,48 @@ impl VM {
     //     }
     // }
 
-    // fn get_method_info(&mut self, id: IdentId) -> MethodInfo {
-    //     for env in self.env.clone().iter_mut().rev() {
-    //         let r = match env {
-    //             Env::ClassRef(ClassRef(r)) => *self.class_info_with_ref(ClassRef(*r)).id,
-    //             Env::InstanceRef(InstanceRef(r)) => {
-    //                 *self.class_info_with_instance(InstanceRef(*r)).id
-    //             }
-    //         };
-    //         let class_ref = self.class_info_with_id(IdentId(r)).clone();
-    //         match class_ref.method_table.get(&id) {
-    //             Some(info) => return info.to_owned(),
-    //             None => {
-    //                 for r in class_ref.subclass.values() {
-    //                     if let Some(info) = self.class_info_with_ref(*r).method_table.get(&id) {
-    //                         return info.to_owned();
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     unimplemented!("undefined function.");
-    // }
+    fn get_method_info(&mut self, id: IdentId) -> MethodInfo {
+        for env in self.env.clone().iter_mut().rev() {
+            let r = match env {
+                Env::ClassRef(ClassRef(r)) => *self.class_info_with_ref(ClassRef(*r)).id,
+                Env::InstanceRef(InstanceRef(r)) => {
+                    *self.class_info_with_instance(InstanceRef(*r)).id
+                }
+            };
+            let class_ref = self.class_info_with_id(IdentId(r)).clone();
+            match class_ref.method_table.get(&id) {
+                Some(info) => return info.to_owned(),
+                None => {
+                    for r in class_ref.subclass.values() {
+                        if let Some(info) = self.class_info_with_ref(*r).method_table.get(&id) {
+                            return info.to_owned();
+                        }
+                    }
+                }
+            }
+        }
+        unimplemented!("undefined function.");
+    }
 
-    // fn push_env(&mut self, val: Value) -> bool {
-    //     match val {
-    //         Value::Class(r) => {
-    //             self.env.push(Env::ClassRef(r));
-    //             true
-    //         }
-    //         Value::Instance(r) => {
-    //             self.env.push(Env::InstanceRef(r));
-    //             true
-    //         }
-    //         _ => false,
-    //     }
-    // }
+    fn push_env(&mut self, val: Value) -> bool {
+        match val {
+            Value::Class(r) => {
+                self.env.push(Env::ClassRef(r));
+                true
+            }
+            Value::Instance(r) => {
+                self.env.push(Env::InstanceRef(r));
+                true
+            }
+            _ => false,
+        }
+    }
 
-    // fn pop_env_if_true(&mut self, b: bool) {
-    //     if b {
-    //         self.env.pop().unwrap();
-    //     }
-    // }
+    fn pop_env_if_true(&mut self, b: bool) {
+        if b {
+            self.env.pop().unwrap();
+        }
+    }
 
     fn eval_add(&mut self, lhs: Value, rhs: Value) -> EvalResult {
         match (lhs, rhs) {

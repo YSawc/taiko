@@ -22,6 +22,7 @@ impl VM {
     pub fn gen(&mut self, node: &Node) {
         match &node.kind {
             NodeKind::None => self.stack.iseq.push(Inst::NIL),
+            NodeKind::SelfValue => self.stack.iseq.push(Inst::SELF_VALUE),
             NodeKind::Number(num) => self.gen_comp_fixnum(*num),
             NodeKind::String(s) => {
                 let id = self.stack.ident_table.get_ident_id(s);
@@ -145,18 +146,22 @@ impl VM {
             //         _ => (),
             //     }
             // }
-            // NodeKind::Send(receiver, method, args) => {
-            //     let id = match method.kind {
-            //         NodeKind::Ident(id) => id,
-            //         _ => return Err(self.error_unimplemented(format!("Expected identifier."))),
-            //     };
-            //     for arg in args.iter().rev() {
-            //         self.gen(arg)?;
-            //     }
-            //     self.gen(receiver)?;
-            //     self.gen_send(id, args.len());
-            // }
-            _ => unimplemented!(),
+            NodeKind::Send(receiver, method, args) => {
+                self.gen(receiver);
+                let id = match method.kind {
+                    NodeKind::Ident(id) => id,
+                    _ => unimplemented!(),
+                };
+                self.gen_comp_usize(*id);
+                self.gen(&args.table);
+                self.gen(&args.node);
+                self.gen_nodes_with_len(args.args.to_owned());
+                self.stack.iseq.push(Inst::SEND)
+            }
+            _ => {
+                println!("&node.kind: {:?}", &node.kind);
+                unimplemented!();
+            }
         }
     }
 
@@ -164,6 +169,12 @@ impl VM {
         for node in nodes.clone() {
             self.gen(&node);
         }
+    }
+
+    fn gen_nodes_with_len(&mut self, nodes: Vec<Node>) {
+        self.gen_nodes(nodes.to_vec());
+        let len = nodes.len();
+        self.gen_comp_usize(len);
     }
 
     fn gen_comp_fixnum(&mut self, num: i64) {

@@ -121,14 +121,14 @@ mod test {
     //     eval_script(program, expected);
     // }
 
-    // #[test]
-    // fn assert1() {
-    //     let program = "
-    //     assert(1, 1)
-    //     ";
-    //     let expected = Value::Nil;
-    //     eval_script(program, expected);
-    // }
+    #[test]
+    fn assert1() {
+        let program = "
+        assert(1, 1)
+        ";
+        let expected = Value::Nil;
+        eval_script(program, expected);
+    }
 
     // #[test]
     // fn assert2() {
@@ -202,23 +202,23 @@ mod test {
     //     eval_script(program, expected);
     // }
 
-    // #[test]
-    // fn to_i1() {
-    //     let program = "
-    //         '34'.to_i
-    //     ";
-    //     let expected = Value::FixNum(34);
-    //     eval_script(program, expected);
-    // }
+    #[test]
+    fn to_i1() {
+        let program = "
+            '34'.to_i
+        ";
+        let expected = Value::FixNum(34);
+        eval_script(program, expected);
+    }
 
-    // #[test]
-    // fn to_s1() {
-    //     let program = "
-    //         34.to_s
-    //     ";
-    //     let expected = Value::String("34".to_string());
-    //     eval_script(program, expected);
-    // }
+    #[test]
+    fn to_s1() {
+        let program = "
+            34.to_s
+        ";
+        let expected = Value::String("34".to_string());
+        eval_script(program, expected);
+    }
 
     // #[test]
     // fn self_class1() {
@@ -282,14 +282,14 @@ mod test {
     //     eval_script(program, expected);
     // }
 
-    // #[test]
-    // fn len() {
-    //     let program = "
-    //         [1, 'string', 3, 4].len
-    //     ";
-    //     let expected = Value::FixNum(4);
-    //     eval_script(program, expected);
-    // }
+    #[test]
+    fn len() {
+        let program = "
+            [1, 'string', 3, 4].len
+        ";
+        let expected = Value::FixNum(4);
+        eval_script(program, expected);
+    }
 
     #[test]
     fn array_index() {
