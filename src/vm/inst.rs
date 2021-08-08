@@ -12,6 +12,7 @@ impl Inst {
     pub const ARRAY: u8 = 8;
     pub const ARRAY_INDEX: u8 = 9;
     pub const SEND: u8 = 10;
+    pub const IDENT: u8 = 11;
 
     pub const ADD: u8 = 40;
     pub const SUB: u8 = 41;

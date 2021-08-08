@@ -1,10 +1,11 @@
 // use crate::node::node::*;
 // use crate::util::util::*;
 use crate::value::value::*;
+use crate::vm::vm::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Args {
-    pub body: u8,
+    pub body: Vec<ISeq>,
     pub args: Vec<Value>,
     pub table: u8,
 }
@@ -12,7 +13,7 @@ pub struct Args {
 impl Args {
     pub fn new() -> Self {
         Self {
-            body: 0,
+            body: vec![],
             args: vec![],
             table: 0,
         }

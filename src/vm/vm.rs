@@ -9,12 +9,15 @@ use crate::vm::inst::*;
 use crate::vm::stack::*;
 use rustc_hash::FxHashMap;
 
+use std::ops::Deref;
+
 pub type ISeq = u8;
 
 #[derive(Debug, Clone)]
 pub struct VM {
     pub stack: Stack,
     pub stack_pos: usize,
+    pub iseq_pos: usize,
     pub exec_stack: Vec<Value>,
     pub source_info: SourceInfo,
     pub ident_table: IdentifierTable,
@@ -108,6 +111,7 @@ impl VM {
         Self {
             stack: Stack::new(),
             stack_pos: 0,
+            iseq_pos: 0,
             exec_stack: vec![],
             source_info: SourceInfo::new(),
             ident_table: IdentifierTable::new(),
@@ -160,7 +164,7 @@ impl VM {
             "to_s" => VM::builtin_to_s,
             "assert" => VM::builtin_assert,
             "class" => VM::builtin_class,
-            // "times" => VM::builtin_times,
+            "times" => VM::builtin_times,
             "len" => VM::builtin_len,
             "each" => VM::builtin_each,
             "instance_variables" => VM::builtin_instance_variables
@@ -226,37 +230,37 @@ impl VM {
         Value::SelfClass(class)
     }
 
-    // pub fn builtin_times(&mut self, receiver: Value, args: Args) -> Value {
-    //     match receiver {
-    //         Value::FixNum(n) => {
-    //             for i in 0..n {
-    //                 self.new_propagated_local_var_stack();
+    pub fn builtin_times(&mut self, receiver: Value, args: Args) -> Value {
+        match receiver {
+            Value::FixNum(n) => {
+                for i in 0..n {
+                    self.new_propagated_local_var_stack();
 
-    //                 if let NodeKind::Ident(id) = args.table.kind {
-    //                     let imm_value = Value::FixNum(i);
-    //                     let val = args.table as u8;
-    //                     self.lvar_table_as_mut().insert(val, imm_value);
-    //                 }
+                    let imm_value = Value::FixNum(i);
+                    let val = args.table as usize;
+                    let iseq = args.body.to_owned();
+                    println!("args: {:?}", args);
+                    self.lvar_table_as_mut().insert(IdentId(val), imm_value);
 
-    //                 self.eval_seq().unwrap_or_else(|err| {
-    //                     panic!("Builtin#times: error occured while eval_node. {:?};", err)
-    //                 });
-    //                 let local_scope = self.local_scope().clone();
-    //                 self.scope_stack.pop();
-    //                 for (id, n) in local_scope.lvar_table.into_iter() {
-    //                     if self.local_scope().lvar_table.contains_key(&id) {
-    //                         *self.local_scope().lvar_table.get_mut(&id).unwrap() = n;
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //         _ => panic!(
-    //             "Builtin#times : must has array reciver, bud god {:?}.",
-    //             receiver
-    //         ),
-    //     }
-    //     Value::Nil
-    // }
+                    self.eval_seq().unwrap_or_else(|err| {
+                        panic!("Builtin#times: error occured while eval_node. {:?};", err)
+                    });
+                    let local_scope = self.local_scope().clone();
+                    self.scope_stack.pop();
+                    for (id, n) in local_scope.lvar_table.into_iter() {
+                        if self.local_scope().lvar_table.contains_key(&id) {
+                            *self.local_scope().lvar_table.get_mut(&id).unwrap() = n;
+                        }
+                    }
+                }
+            }
+            _ => panic!(
+                "Builtin#times : must has array reciver, bud god {:?}.",
+                receiver
+            ),
+        }
+        Value::Nil
+    }
 
     pub fn builtin_len(&mut self, receiver: Value, _args: Args) -> Value {
         match receiver {
@@ -309,6 +313,226 @@ impl VM {
 }
 
 impl VM {
+    pub fn gen(&mut self, node: &Node) {
+        // println!("&node.kind: {:?}", &node.kind);
+        match &node.kind {
+            NodeKind::None => self.push_iseq(Inst::NIL),
+            NodeKind::SelfValue => self.push_iseq(Inst::SELF_VALUE),
+            NodeKind::Number(num) => self.gen_comp_fixnum(*num),
+            NodeKind::String(s) => {
+                let id = self.stack.ident_table.get_ident_id(s);
+                self.gen_comp_usize(*id);
+                self.push_iseq(Inst::STRING);
+            }
+            NodeKind::BinOp(op, lhs, rhs) => match op {
+                BinOp::Add => {
+                    self.gen(lhs);
+                    self.gen(rhs);
+                    self.push_iseq(Inst::ADD);
+                }
+                BinOp::Sub => {
+                    self.gen(lhs);
+                    self.gen(rhs);
+                    self.push_iseq(Inst::SUB);
+                }
+                BinOp::Mul => {
+                    self.gen(lhs);
+                    self.gen(rhs);
+                    self.push_iseq(Inst::MUL);
+                }
+                BinOp::Div => {
+                    self.gen(lhs);
+                    self.gen(rhs);
+                    self.push_iseq(Inst::DIV);
+                }
+                BinOp::Eq => {
+                    self.gen(lhs);
+                    self.gen(rhs);
+                    self.push_iseq(Inst::EQ);
+                }
+                BinOp::Ne => {
+                    self.gen(lhs);
+                    self.gen(rhs);
+                    self.push_iseq(Inst::NE);
+                }
+                BinOp::GT => {
+                    self.gen(lhs);
+                    self.gen(rhs);
+                    self.push_iseq(Inst::GT);
+                }
+                BinOp::GE => {
+                    self.gen(lhs);
+                    self.gen(rhs);
+                    self.push_iseq(Inst::GE);
+                }
+                BinOp::LT => {
+                    self.gen(lhs);
+                    self.gen(rhs);
+                    self.push_iseq(Inst::LT);
+                }
+                BinOp::LE => {
+                    self.gen(lhs);
+                    self.gen(rhs);
+                    self.push_iseq(Inst::LE);
+                }
+                BinOp::LAnd => {
+                    self.gen(lhs);
+                    self.gen(rhs);
+                    self.push_iseq(Inst::LAND);
+                }
+                BinOp::LOr => {
+                    self.gen(lhs);
+                    self.gen(rhs);
+                    self.push_iseq(Inst::LOR);
+                }
+            },
+            NodeKind::Ident(id) => {
+                let num = id.deref();
+                self.gen_ident(*num);
+            }
+            NodeKind::CompStmt(nodes) => {
+                self.gen_nodes(nodes.to_vec());
+            }
+            NodeKind::BlockDecl(body) => self.gen(body),
+            NodeKind::Array(nodes) => {
+                self.gen_nodes(nodes.to_vec());
+                let len = nodes.len();
+                self.gen_comp_usize(len);
+                self.push_iseq(Inst::ARRAY);
+            }
+            NodeKind::ArrayIndex(nodes, num) => {
+                self.gen(nodes);
+                self.gen_comp_fixnum(*num);
+                self.push_iseq(Inst::ARRAY_INDEX);
+            }
+            // NodeKind::If(cond_, then_, else_) => {
+            //     self.gen(&cond_)?;
+            //     let src1 = self.gen_jmp_if_false();
+            //     self.gen(&then_)?;
+            //     let src2 = self.gen_jmp();
+            //     self.write_disp_from_cur(src1);
+            //     self.gen(&else_)?;
+            //     self.write_disp_from_cur(src2);
+            // }
+            // NodeKind::For(id, iter, body) => {
+            //     let id = match id.kind {
+            //         NodeKind::Ident(id) => id,
+            //         _ => return Err(self.error_nomethod("Expected an identifier.")),
+            //     };
+            //     let (start, end) = match &iter.kind {
+            //         NodeKind::Range(start, end) => (start, end),
+            //         _ => return Err(self.error_nomethod("Expected Range.")),
+            //     };
+            //     self.gen(start)?;
+            //     self.gen_set_local(id);
+            //     let p = self.current();
+            //     self.gen(end)?;
+            //     self.gen_get_local(id);
+            //     self.iseq.push(Inst::GE);
+            //     let src = self.gen_jmp_if_false();
+            //     self.gen(body)?;
+            //     self.gen_get_local(id);
+            //     self.gen_fixnum(1);
+            //     self.iseq.push(Inst::ADD);
+            //     self.gen_set_local(id);
+
+            //     self.gen_jmp_back(p);
+            //     self.write_disp_from_cur(src);
+            // }
+            // NodeKind::Assign(lhs, rhs) => {
+            //     self.gen(rhs)?;
+            //     match lhs.kind {
+            //         NodeKind::Ident(id) => {
+            //             self.gen_set_local(id);
+            //         }
+            //         _ => (),
+            //     }
+            // }
+            NodeKind::Send(receiver, method, args) => {
+                self.gen(receiver);
+                let id = match method.kind {
+                    NodeKind::Ident(id) => id,
+                    _ => unimplemented!(),
+                };
+                // println!("id: {:?}", id);
+                self.gen_comp_usize(*id);
+                self.gen(&args.table);
+                self.gen_body(&args.node);
+                self.gen_nodes_with_len(args.args.to_owned());
+                self.push_iseq(Inst::SEND);
+            }
+            _ => {
+                println!("&node.kind: {:?}", &node.kind);
+                println!("{:?}", self.ident_table);
+                unimplemented!();
+            }
+        }
+    }
+
+    fn gen_nodes(&mut self, nodes: Vec<Node>) {
+        for node in nodes.clone() {
+            self.gen(&node);
+        }
+    }
+
+    fn gen_nodes_with_len(&mut self, nodes: Vec<Node>) {
+        self.gen_nodes(nodes.to_vec());
+        let len = nodes.len();
+        self.gen_comp_usize(len);
+    }
+
+    fn gen_comp_fixnum(&mut self, num: i64) {
+        self.push_iseq(Inst::FIXNUM);
+        self.push_iseq((num >> 56) as u8);
+        self.push_iseq((num >> 48) as u8);
+        self.push_iseq((num >> 40) as u8);
+        self.push_iseq((num >> 32) as u8);
+        self.push_iseq((num >> 24) as u8);
+        self.push_iseq((num >> 16) as u8);
+        self.push_iseq((num >> 8) as u8);
+        self.push_iseq(num as u8);
+    }
+
+    pub fn gen_ident(&mut self, num: usize) {
+        self.push_iseq(Inst::IDENT);
+        self.push_iseq((num >> 56) as u8);
+        self.push_iseq((num >> 48) as u8);
+        self.push_iseq((num >> 40) as u8);
+        self.push_iseq((num >> 32) as u8);
+        self.push_iseq((num >> 24) as u8);
+        self.push_iseq((num >> 16) as u8);
+        self.push_iseq((num >> 8) as u8);
+        self.push_iseq(num as u8);
+    }
+
+    pub fn gen_comp_usize(&mut self, num: usize) {
+        let num = num as i64;
+        self.gen_comp_fixnum(num);
+    }
+
+    // fn iseq_count(&mut self, num: usize) {
+    // }
+
+    // fn iseq_size(&mut self) -> usize {
+    //     let size = match self.stack.iseq[self.stack_pos] {
+    //         Inst::NIL | Inst::SELF_VALUE => 1,
+    //         Inst::FIXNUM => 9,
+    //         Inst::ADD
+    //         | Inst::SUB
+    //         | Inst::MUL
+    //         | Inst::DIV
+    //         | Inst::EQ
+    //         | Inst::NE
+    //         | Inst::GT
+    //         | Inst::GE
+    //         | Inst::LT
+    //         | Inst::LE => 1,
+    //         _ => unimplemented!(),
+    //     };
+    //     self.stack_pos += size;
+    //     size
+    // }
+
     pub fn lvar_table_as_mut(&mut self) -> &mut ValueTable {
         &mut self.scope_stack.last_mut().unwrap().lvar_table
     }
@@ -329,25 +553,89 @@ impl VM {
     }
 
     pub fn init_iseq(&mut self, node: Node) {
+        self.stack.iseqs.insert(self.iseq_pos, vec![]);
         self.gen(&node);
-        self.stack.iseq.push(Inst::END);
-        println!("{:?}", self.stack.iseq);
+        self.push_iseq(Inst::END);
+        // println!("{:?}", self.stack.iseqs);
+        // println!("{:?}", self.env_info().method_table);
     }
 
     fn get_val(&mut self) -> usize {
-        match self.stack.iseq[self.stack_pos] {
-            Inst::FIXNUM => self.stack_pos += 1,
+        match self.iseq() {
+            Inst::FIXNUM | Inst::IDENT => self.stack_pos += 1,
             _ => unimplemented!(),
         }
         let mut num = 0;
-        num += (self.stack.iseq[self.stack_pos] as usize) << 56;
-        num += (self.stack.iseq[self.stack_pos + 1] as usize) << 48;
-        num += (self.stack.iseq[self.stack_pos + 2] as usize) << 40;
-        num += (self.stack.iseq[self.stack_pos + 3] as usize) << 32;
-        num += (self.stack.iseq[self.stack_pos + 4] as usize) << 24;
-        num += (self.stack.iseq[self.stack_pos + 5] as usize) << 16;
-        num += (self.stack.iseq[self.stack_pos + 6] as usize) << 8;
-        num += self.stack.iseq[self.stack_pos + 7] as usize;
+        num += (self.iseq() as usize) << 56;
+        num += (self.iseq_idx(1) as usize) << 48;
+        num += (self.iseq_idx(2) as usize) << 40;
+        num += (self.iseq_idx(3) as usize) << 32;
+        num += (self.iseq_idx(4) as usize) << 24;
+        num += (self.iseq_idx(5) as usize) << 16;
+        num += (self.iseq_idx(6) as usize) << 8;
+        num += self.iseq_idx(7) as usize;
+        self.stack_pos += 8;
+        num as usize
+    }
+
+    pub fn insert_num(&mut self, num: usize) {
+        let pos = self.stack_pos;
+        self.current_iseq().insert(pos, Inst::FIXNUM as u8);
+        self.current_iseq().insert(pos + 1, (num >> 56) as u8);
+        self.current_iseq().insert(pos + 2, (num >> 48) as u8);
+        self.current_iseq().insert(pos + 3, (num >> 40) as u8);
+        self.current_iseq().insert(pos + 4, (num >> 32) as u8);
+        self.current_iseq().insert(pos + 5, (num >> 24) as u8);
+        self.current_iseq().insert(pos + 6, (num >> 16) as u8);
+        self.current_iseq().insert(pos + 7, (num >> 8) as u8);
+        self.current_iseq().insert(pos + 8, num as u8);
+    }
+
+    pub fn insert_iseq(&mut self, inst: u8) {
+        let pos = self.stack_pos;
+        self.current_iseq().insert(pos, inst);
+    }
+
+    pub fn push_iseq(&mut self, inst: u8) {
+        self.current_iseq().push(inst);
+    }
+
+    pub fn current_iseq(&mut self) -> &mut Vec<ISeq> {
+        let pos = self.iseq_pos;
+        self.stack.iseqs.get_mut(&pos).unwrap()
+    }
+
+    pub fn gen_body(&mut self, node: &Node) {
+        match node.kind {
+            NodeKind::None => self.push_iseq(Inst::NIL),
+            _ => {
+                let ptr = node as *const _ as usize;
+                let current_pos = self.stack_pos;
+                self.iseq_pos = ptr;
+                self.stack.iseqs.insert(self.iseq_pos, vec![]);
+                self.gen(node);
+                self.iseq_pos = current_pos;
+                self.gen_comp_usize(ptr);
+                // self.push_fixnum(node.len());
+            }
+        }
+    }
+
+    fn get_ptr(&mut self) -> usize {
+        match self.exec_stack() {
+            Value::FixNum(_) => (),
+            Value::Nil => return 0,
+            _ => unimplemented!(),
+        }
+        let mut num = 0;
+        num += (self.iseq_idx(0) as usize) << 56;
+        num += (self.iseq_idx(1) as usize) << 48;
+        num += (self.iseq_idx(2) as usize) << 40;
+        num += (self.iseq_idx(3) as usize) << 32;
+        num += (self.iseq_idx(4) as usize) << 24;
+        num += (self.iseq_idx(5) as usize) << 16;
+        num += (self.iseq_idx(6) as usize) << 8;
+        num += self.iseq_idx(7) as usize;
         self.stack_pos += 8;
         num as usize
     }
@@ -358,6 +646,7 @@ impl VM {
     }
 
     pub fn exec_stack(&mut self) -> Value {
+        // println!("self.exec_stack: {:?}", self.exec_stack);
         self.exec_stack.pop().unwrap()
     }
 
@@ -378,13 +667,49 @@ impl VM {
         arr
     }
 
+    fn get_body(&mut self) {
+        let ptr = self.get_ptr();
+        if ptr == 0 {
+            self.insert_num(0);
+        } else {
+            unimplemented!();
+            // let curent_iseq_pos = self.iseq_pos;
+            // let curent_stack_pos = self.stack_pos;
+            // self.stack_pos = 0;
+            // let current_stack = self.exec_stack.to_owned();
+            // self.iseq_pos = ptr;
+            // self.current_iseq().push(Inst::END);
+            // self.eval_seq().unwrap();
+            // let len = self.exec_stack.len();
+            // let mut get_stack = self.exec_stack.to_owned();
+            // self.exec_stack = current_stack;
+            // self.exec_stack.append(&mut get_stack);
+            // self.iseq_pos = curent_iseq_pos;
+            // self.stack_pos = curent_stack_pos;
+            // self.gen_comp_usize(len);
+        }
+    }
+
+    pub fn iseq(&mut self) -> u8 {
+        // println!(
+        //     "self.stack.iseqs[&self.iseq_pos][self.stack_pos]: {:?}",
+        //     self.stack.iseqs[&self.iseq_pos][self.stack_pos]
+        // );
+        // println!(
+        //     "self.stack.iseqs[&self.iseq_pos]: {:?}",
+        //     self.stack.iseqs[&self.iseq_pos]
+        // );
+
+        self.stack.iseqs[&self.iseq_pos][self.stack_pos]
+    }
+
+    pub fn iseq_idx(&mut self, num: i64) -> u8 {
+        self.stack.iseqs[&self.iseq_pos][(self.stack_pos as i64 + num) as usize]
+    }
+
     pub fn eval_seq(&mut self) -> Result<(), RuntimeError> {
         loop {
-            // println!(
-            //     "self.stack.iseq[self.stack_pos]: {}",
-            //     self.stack.iseq[self.stack_pos]
-            // );
-            match self.stack.iseq[self.stack_pos] {
+            match self.iseq() {
                 Inst::NIL => {
                     self.stack_pos += 1;
                     self.exec_stack.push(Value::Nil);
@@ -395,6 +720,7 @@ impl VM {
                     self.exec_stack.push(val);
                 }
                 Inst::END => {
+                    self.stack_pos += 1;
                     if let Some(val) = self.exec_stack.pop() {
                         self.exec_stack.push(val);
                     } else {
@@ -520,7 +846,13 @@ impl VM {
                 Inst::SEND => {
                     self.stack_pos += 1;
                     let args = self.get_array();
-                    let body = self.exec_stack().value() as u8;
+                    self.get_body();
+                    let body_len = self.get_val();
+                    // let mut body = vec![];
+                    // for _ in 0..body_len {
+                    //     body.push(self.exec_stack());
+                    // }
+                    // body.reverse();
                     let table = self.exec_stack().value() as u8;
                     let id = self.exec_stack().ident();
                     let info = self.get_method_info(id);
@@ -550,9 +882,14 @@ impl VM {
                         //     Ok(val)
                         // }
                         MethodInfo::BuiltinFunc { func, .. } => {
-                            let args = Args { body, args, table };
+                            let args = Args {
+                                body: vec![],
+                                args,
+                                table,
+                            };
                             self.pop_env_if_true(f);
                             let val = func(self, receiver, args);
+                            println!("val: {:?}", val);
                             self.exec_stack.push(val);
                         }
                         _ => unimplemented!(),
@@ -562,6 +899,7 @@ impl VM {
                     self.stack_pos += 1;
                     let arr = self.get_array();
                     self.exec_stack.push(Value::Array(arr));
+                    // println!("self.exec_stack: {:?}", self.exec_stack);
                 }
                 Inst::ARRAY_INDEX => {
                     self.stack_pos += 1;
@@ -574,12 +912,18 @@ impl VM {
                         _ => unreachable!(),
                     }
                 }
+                Inst::IDENT => {
+                    let val = self.push_fixnum();
+                    self.exec_stack.push(val);
+                }
                 _ => unimplemented!(),
             }
         }
     }
 
     pub fn eval(&mut self) -> EvalResult {
+        // let body = &self.stack.iseq.to_owned();
+        // self.eval_seq(body)?;
         self.eval_seq()?;
         Ok(self.exec_stack())
     }
@@ -1015,6 +1359,8 @@ impl VM {
                 }
             };
             let class_ref = self.class_info_with_id(IdentId(r)).clone();
+            // println!("id: {:?}", id);
+            // println!("class_ref.method_table: {:?}", class_ref.method_table);
             match class_ref.method_table.get(&id) {
                 Some(info) => return info.to_owned(),
                 None => {

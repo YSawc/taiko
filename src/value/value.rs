@@ -30,4 +30,12 @@ impl Value {
             _ => unimplemented!("Non value detected."),
         }
     }
+
+    pub fn usize(&mut self) -> usize {
+        match self {
+            Value::FixNum(num) => *num as usize,
+            Value::Nil => 0,
+            _ => unimplemented!("Non value detected."),
+        }
+    }
 }
