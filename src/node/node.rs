@@ -15,6 +15,7 @@ pub enum NodeKind {
     CompStmt(Vec<Node>),
     If(Box<Node>, Box<Node>, Box<Node>),
     Ident(IdentId),
+    TableIdent(IdentId),
     InstanceVar(IdentId),
     ClassVar(IdentId),
     GlobalIdent(IdentId),
@@ -53,6 +54,7 @@ impl std::fmt::Display for Node {
         match &self.kind {
             NodeKind::BinOp(op, lhs, rhs) => write!(f, "[{:?} ( {}, {}  )]", op, lhs, rhs),
             NodeKind::Ident(id) => write!(f, "(LocalVar {:?})", id),
+            NodeKind::TableIdent(id) => write!(f, "(TablelVar {:?})", id),
             NodeKind::GlobalIdent(id) => write!(f, "(GlobalVar {:?})", id),
             NodeKind::Send(receiver, method_name, args) => {
                 write!(f, "[ Send [{}]: [{}] ", receiver, method_name)?;
@@ -118,6 +120,10 @@ impl Node {
 
     pub fn new_identifier(id: IdentId, loc: Loc) -> Self {
         Node::new(NodeKind::Ident(id), loc)
+    }
+
+    pub fn new_table_identifier(id: IdentId, loc: Loc) -> Self {
+        Node::new(NodeKind::TableIdent(id), loc)
     }
 
     pub fn new_instance_var(id: IdentId, loc: Loc) -> Self {

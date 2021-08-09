@@ -561,6 +561,9 @@ impl Parser {
                                     let (args_node, args_table) = self.parse_do()?;
                                     args.node = args_node;
                                     args.table = args_table.clone();
+                                    if let NodeKind::Ident(id) = args.table.kind {
+                                        args.table.kind = NodeKind::TableIdent(id)
+                                    };
 
                                     Node::new_send(
                                         node,

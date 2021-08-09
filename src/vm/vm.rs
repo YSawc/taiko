@@ -390,6 +390,10 @@ impl VM {
                 let num = id.deref();
                 self.gen_ident(*num);
             }
+            NodeKind::TableIdent(id) => {
+                let num = id.deref();
+                self.gen_table_ident(*num);
+            }
             NodeKind::CompStmt(nodes) => {
                 self.gen_nodes(nodes.to_vec());
             }
@@ -505,6 +509,18 @@ impl VM {
         self.push_iseq(num as u8);
     }
 
+    pub fn gen_table_ident(&mut self, num: usize) {
+        self.push_iseq(Inst::TABLE_IDENT);
+        self.push_iseq((num >> 56) as u8);
+        self.push_iseq((num >> 48) as u8);
+        self.push_iseq((num >> 40) as u8);
+        self.push_iseq((num >> 32) as u8);
+        self.push_iseq((num >> 24) as u8);
+        self.push_iseq((num >> 16) as u8);
+        self.push_iseq((num >> 8) as u8);
+        self.push_iseq(num as u8);
+    }
+
     pub fn gen_comp_usize(&mut self, num: usize) {
         let num = num as i64;
         self.gen_comp_fixnum(num);
@@ -562,7 +578,7 @@ impl VM {
 
     fn get_val(&mut self) -> usize {
         match self.iseq() {
-            Inst::FIXNUM | Inst::IDENT => self.stack_pos += 1,
+            Inst::FIXNUM | Inst::IDENT | Inst::TABLE_IDENT => self.stack_pos += 1,
             _ => unimplemented!(),
         }
         let mut num = 0;
@@ -905,6 +921,10 @@ impl VM {
                             panic!("undefined local variable.")
                         }
                     }
+                }
+                Inst::TABLE_IDENT => {
+                    let val = self.push_fixnum();
+                    self.exec_stack.push(val);
                 }
                 _ => unimplemented!(),
             }
