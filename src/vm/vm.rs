@@ -443,15 +443,14 @@ impl VM {
             //     self.gen_jmp_back(p);
             //     self.write_disp_from_cur(src);
             // }
-            // NodeKind::Assign(lhs, rhs) => {
-            //     self.gen(rhs)?;
-            //     match lhs.kind {
-            //         NodeKind::Ident(id) => {
-            //             self.gen_set_local(id);
-            //         }
-            //         _ => (),
-            //     }
-            // }
+            NodeKind::Assign(lhs, rhs) => {
+                self.gen(rhs);
+                match lhs.kind {
+                    NodeKind::Ident(id) => self.gen_comp_fixnum(*id as i64),
+                    _ => unimplemented!(),
+                }
+                self.push_iseq(Inst::ASSIGN);
+            }
             NodeKind::Send(receiver, method, args) => {
                 self.gen(receiver);
                 let id = match method.kind {
@@ -728,6 +727,20 @@ impl VM {
                     let val = self.class_stack();
                     self.exec_stack.push(val);
                 }
+                Inst::ASSIGN => {
+                    self.stack_pos += 1;
+                    let id = self.exec_stack().ident();
+                    let rhs = self.exec_stack();
+                    match self.lvar_table_as_mut().get_mut(&id) {
+                        Some(val) => {
+                            *val = rhs.clone();
+                        }
+                        None => {
+                            self.lvar_table_as_mut().insert(id, rhs.clone());
+                        }
+                    }
+                    self.exec_stack.push(rhs);
+                }
                 Inst::END => {
                     self.stack_pos += 1;
                     if let Some(val) = self.exec_stack.pop() {
@@ -753,55 +766,57 @@ impl VM {
                     self.stack_pos += 1;
                     let rhs = self.exec_stack();
                     let lhs = self.exec_stack();
-                    let val = self.eval_add(rhs, lhs)?;
+                    let val = self.eval_add(lhs, rhs)?;
                     self.exec_stack.push(val);
                 }
                 Inst::SUB => {
+                    println!();
                     self.stack_pos += 1;
                     let rhs = self.exec_stack();
                     let lhs = self.exec_stack();
-                    let val = self.eval_sub(rhs, lhs)?;
+                    let val = self.eval_sub(lhs, rhs)?;
                     self.exec_stack.push(val);
                 }
                 Inst::MUL => {
                     self.stack_pos += 1;
                     let rhs = self.exec_stack();
                     let lhs = self.exec_stack();
-                    let val = self.eval_mul(rhs, lhs)?;
+                    let val = self.eval_mul(lhs, rhs)?;
                     self.exec_stack.push(val);
                 }
                 Inst::DIV => {
                     self.stack_pos += 1;
                     let rhs = self.exec_stack();
                     let lhs = self.exec_stack();
-                    let val = self.eval_div(rhs, lhs)?;
+                    let val = self.eval_div(lhs, rhs)?;
                     self.exec_stack.push(val);
                 }
                 Inst::EQ => {
                     self.stack_pos += 1;
                     let rhs = self.exec_stack();
                     let lhs = self.exec_stack();
-                    let val = self.eval_eq(rhs, lhs)?;
+                    let val = self.eval_eq(lhs, rhs)?;
                     self.exec_stack.push(val);
                 }
                 Inst::NE => {
                     self.stack_pos += 1;
                     let rhs = self.exec_stack();
                     let lhs = self.exec_stack();
-                    let val = self.eval_neq(rhs, lhs)?;
+                    let val = self.eval_neq(lhs, rhs)?;
                     self.exec_stack.push(val);
                 }
                 Inst::GT => {
                     self.stack_pos += 1;
                     let rhs = self.exec_stack();
                     let lhs = self.exec_stack();
-                    let val = self.eval_gt(rhs, lhs)?;
+                    let val = self.eval_gt(lhs, rhs)?;
                     self.exec_stack.push(val);
                 }
                 Inst::GE => {
+                    self.stack_pos += 1;
                     let rhs = self.exec_stack();
                     let lhs = self.exec_stack();
-                    let val = self.eval_ge(rhs, lhs)?;
+                    let val = self.eval_ge(lhs, rhs)?;
                     self.exec_stack.push(val);
                 }
                 // Inst::IF => {

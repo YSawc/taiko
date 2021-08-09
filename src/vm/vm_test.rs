@@ -191,16 +191,16 @@ mod test {
     //     eval_script(program, expected);
     // }
 
-    // #[test]
-    // fn local_var1() {
-    //     let program = "
-    //         a = 6;
-    //         b = 2;c = 1;
-    //         a/b-c;
-    //     ";
-    //     let expected = Value::FixNum(2);
-    //     eval_script(program, expected);
-    // }
+    #[test]
+    fn local_var1() {
+        let program = "
+            a = 6;
+            b = 2;c = 1;
+            a/b-c;
+        ";
+        let expected = Value::FixNum(2);
+        eval_script(program, expected);
+    }
 
     #[test]
     fn to_i1() {
@@ -253,34 +253,34 @@ mod test {
         eval_script(program, expected);
     }
 
-    // #[test]
-    // fn times3() {
-    //     let program = "
-    //         a = 0
-    //         255.times do |n|
-    //           a = a + n
-    //         end
-    //         a
-    //     ";
-    //     let expected = Value::FixNum(32385);
-    //     eval_script(program, expected);
-    // }
+    #[test]
+    fn times3() {
+        let program = "
+            a = 0
+            255.times do |n|
+              a = a + n
+            end
+            a
+        ";
+        let expected = Value::FixNum(32385);
+        eval_script(program, expected);
+    }
 
-    // #[test]
-    // fn times4() {
-    //     let program = "
-    //         a = 0
-    //         b = 0
-    //         24.times do |n|
-    //           b = b + n + a
-    //           a = b
-    //         end
+    #[test]
+    fn times4() {
+        let program = "
+            a = 0
+            b = 0
+            24.times do |n|
+              b = b + n + a
+              a = b
+            end
 
-    //         a
-    //     ";
-    //     let expected = Value::FixNum(16777191);
-    //     eval_script(program, expected);
-    // }
+            a
+        ";
+        let expected = Value::FixNum(16777191);
+        eval_script(program, expected);
+    }
 
     #[test]
     fn len() {
