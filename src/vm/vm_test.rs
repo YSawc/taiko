@@ -231,16 +231,16 @@ mod test {
     //     eval_script(program, expected);
     // }
 
-    // #[test]
-    // fn times1() {
-    //     let program = "
-    //         3.times do
-    //           puts('hello')
-    //         end
-    //     ";
-    //     let expected = Value::Nil;
-    //     eval_script(program, expected);
-    // }
+    #[test]
+    fn times1() {
+        let program = "
+            3.times do
+              puts('hello')
+            end
+        ";
+        let expected = Value::Nil;
+        eval_script(program, expected);
+    }
 
     // #[test]
     // fn times2() {
