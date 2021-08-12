@@ -148,30 +148,30 @@ mod test {
     //     eval_script(program, expected);
     // }
 
-    // #[test]
-    // fn if1() {
-    //     let program = "if 5*4==16 +4 then 7; end";
-    //     let expected = Value::FixNum(7);
-    //     eval_script(program, expected);
-    // }
+    #[test]
+    fn if1() {
+        let program = "if 5*4==16 +4 then 7; end";
+        let expected = Value::FixNum(7);
+        eval_script(program, expected);
+    }
 
-    // #[test]
-    // fn if2() {
-    //     let program = "if
-    //     5*4==16 +4
-    //     7 end";
-    //     let expected = Value::FixNum(7);
-    //     eval_script(program, expected);
-    // }
+    #[test]
+    fn if2() {
+        let program = "if
+        5*4==16 +4
+        7 end";
+        let expected = Value::FixNum(7);
+        eval_script(program, expected);
+    }
 
-    // #[test]
-    // fn if3() {
-    //     let program = "if 5*9==16 +4
-    //     7 elsif 4==4+9 then 8 elsif 3==1+2 then 10
-    //     else 12 end";
-    //     let expected = Value::FixNum(10);
-    //     eval_script(program, expected);
-    // }
+    #[test]
+    fn if3() {
+        let program = "if 5*9==16 +4
+        7 elsif 4==4+9 then 8 elsif 3==1+2 then 10
+        else 12 end";
+        let expected = Value::FixNum(10);
+        eval_script(program, expected);
+    }
 
     // #[test]
     // fn decimal_number1() {

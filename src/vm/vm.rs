@@ -409,6 +409,12 @@ impl VM {
                 self.gen_comp_fixnum(*num);
                 self.push_iseq(Inst::ARRAY_INDEX);
             }
+            NodeKind::If(cond_, then_, else_) => {
+                self.gen_body(else_);
+                self.gen_body(then_);
+                self.gen_body(cond_);
+                self.push_iseq(Inst::IF);
+            }
             // NodeKind::If(cond_, then_, else_) => {
             //     self.gen(&cond_)?;
             //     let src1 = self.gen_jmp_if_false();
@@ -629,9 +635,9 @@ impl VM {
                 self.iseq_pos = ptr;
                 self.stack.iseqs.insert(self.iseq_pos, vec![]);
                 self.gen(node);
+                self.current_iseq().push(Inst::END);
                 self.iseq_pos = current_pos;
                 self.gen_comp_usize(ptr);
-                // self.push_fixnum(node.len());
             }
         }
     }
@@ -677,6 +683,20 @@ impl VM {
         self.stack.eval_stacks.push(self.exec_stack.to_owned());
     }
 
+    fn eval_body(&mut self) -> Value {
+        let ptr = self.get_ptr();
+        if ptr == 0 {
+            Value::Nil
+        } else {
+            self.save_eval_info();
+            self.stack_pos = 0;
+            self.iseq_pos = ptr;
+            self.eval_seq().unwrap();
+            self.return_stack();
+            self.exec_stack()
+        }
+    }
+
     fn get_body(&mut self) -> Vec<ISeq> {
         let ptr = self.get_ptr();
         if ptr == 0 {
@@ -684,7 +704,6 @@ impl VM {
         } else {
             self.stack_pos = 0;
             self.iseq_pos = ptr;
-            self.current_iseq().push(Inst::END);
             self.current_iseq().clone()
         }
     }
@@ -926,6 +945,18 @@ impl VM {
                         }
                         _ => unreachable!(),
                     }
+                }
+                Inst::IF => {
+                    self.stack_pos += 1;
+                    let val = if self.eval_body().bool() {
+                        let val = self.eval_body();
+                        self.exec_stack();
+                        val
+                    } else {
+                        self.exec_stack();
+                        self.eval_body()
+                    };
+                    self.exec_stack.push(val);
                 }
                 Inst::IDENT => {
                     let mut id = self.push_fixnum();

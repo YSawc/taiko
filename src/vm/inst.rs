@@ -14,6 +14,7 @@ impl Inst {
     pub const SEND: u8 = 10;
     pub const IDENT: u8 = 11;
     pub const TABLE_IDENT: u8 = 12;
+    pub const IF: u8 = 13;
 
     pub const ADD: u8 = 40;
     pub const SUB: u8 = 41;

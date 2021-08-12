@@ -38,4 +38,11 @@ impl Value {
             _ => unimplemented!("Non value detected."),
         }
     }
+
+    pub fn bool(&mut self) -> bool {
+        match self {
+            Value::Bool(b) => *b,
+            _ => unimplemented!("Non bool detected."),
+        }
+    }
 }
