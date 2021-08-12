@@ -202,7 +202,7 @@ impl VM {
         }
     }
     pub fn builtin_to_i(&mut self, receiver: Value, _args: Args) -> Value {
-        let i = self.val_to_i(&receiver);
+        let i = receiver.to_i();
         Value::FixNum(i)
     }
 
@@ -226,7 +226,7 @@ impl VM {
     }
 
     pub fn builtin_class(&mut self, receiver: Value, _args: Args) -> Value {
-        let class = self.val_to_class(&receiver);
+        let class = receiver.to_class();
         Value::SelfClass(class)
     }
 
@@ -1181,22 +1181,6 @@ impl VM {
 }
 
 impl VM {
-    pub fn val_to_bool(&self, val: &Value) -> bool {
-        match val {
-            Value::Nil => false,
-            Value::Bool(b) => *b,
-            Value::FixNum(n) => {
-                if n > &0 {
-                    true
-                } else {
-                    false
-                }
-            }
-            Value::String(_) => true,
-            _ => unimplemented!(),
-        }
-    }
-
     pub fn val_to_s(&mut self, val: &Value) -> String {
         match val {
             Value::Nil => "".to_string(),
@@ -1221,29 +1205,6 @@ impl VM {
             Value::Array(v) => {
                 format!("{:?}", v)
             }
-        }
-    }
-
-    pub fn val_to_i(&mut self, val: &Value) -> i64 {
-        match val {
-            Value::String(s) => match s.parse() {
-                Ok(i) => i,
-                _ => unimplemented!(),
-            },
-            _ => unimplemented!(),
-        }
-    }
-
-    pub fn val_to_class(&mut self, val: &Value) -> Class {
-        match val {
-            Value::Nil => Class::Nil,
-            Value::Bool(_) => Class::Bool,
-            Value::FixNum(_) => Class::FixNum,
-            Value::FixDecimalNum(_) => Class::FixDecimalNum,
-            Value::String(_) => Class::String,
-            Value::Class(_) => Class::Class,
-            Value::Instance(_) => Class::Instance,
-            _ => unimplemented!(),
         }
     }
 }

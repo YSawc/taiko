@@ -45,4 +45,43 @@ impl Value {
             _ => unimplemented!("Non bool detected."),
         }
     }
+
+    pub fn to_b(self) -> bool {
+        match self {
+            Value::Nil => false,
+            Value::Bool(b) => b,
+            Value::FixNum(n) => {
+                if n > 0 {
+                    true
+                } else {
+                    false
+                }
+            }
+            Value::String(_) => true,
+            _ => unimplemented!(),
+        }
+    }
+
+    pub fn to_i(self) -> i64 {
+        match self {
+            Value::String(s) => match s.parse() {
+                Ok(i) => i,
+                _ => unimplemented!(),
+            },
+            _ => unimplemented!(),
+        }
+    }
+
+    pub fn to_class(self) -> Class {
+        match self {
+            Value::Nil => Class::Nil,
+            Value::Bool(_) => Class::Bool,
+            Value::FixNum(_) => Class::FixNum,
+            Value::FixDecimalNum(_) => Class::FixDecimalNum,
+            Value::String(_) => Class::String,
+            Value::Class(_) => Class::Class,
+            Value::Instance(_) => Class::Instance,
+            _ => unimplemented!(),
+        }
+    }
 }
