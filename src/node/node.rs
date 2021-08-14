@@ -21,7 +21,7 @@ pub enum NodeKind {
     GlobalIdent(IdentId),
     Const(IdentId),
     Param(IdentId),
-    FuncDecl(IdentId, NodeArray, Box<Node>),
+    FuncDecl(IdentId, Vec<Node>, Box<Node>),
     ClassDecl(IdentId, Box<Node>, Option<IdentId>),
     BlockDecl(Box<Node>),
     Send(Box<Node>, Box<Node>, Box<ParsedArgs>),
@@ -47,7 +47,6 @@ pub enum BinOp {
 }
 
 pub type Node = Annot<NodeKind>;
-pub type NodeArray = Vec<Node>;
 
 impl std::fmt::Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -846,7 +846,7 @@ impl Parser {
                 Token { loc, .. } => return Err(self.error_unexpected(loc)),
             };
             let id = self.ident_table.get_ident_id(&arg);
-            args.push(Node::new(NodeKind::Param(id), loc));
+            args.push(Node::new(NodeKind::TableIdent(id), loc));
             if !self.get_if_punct(Punct::Comma) {
                 break;
             }

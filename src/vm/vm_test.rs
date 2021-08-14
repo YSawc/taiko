@@ -60,31 +60,31 @@ mod test {
     //     eval_script(program, expected);
     // }
 
-    // #[test]
-    // fn func3() {
-    //     let program = "
-    //     a = 1
-    //     def foo
-    //         a
-    //     end
-    //     foo()
-    //     ";
-    //     let expected = Value::FixNum(1);
-    //     eval_script(program, expected);
-    // }
+    #[test]
+    fn func3() {
+        let program = "
+        a = 1
+        def foo
+            a
+        end
+        foo()
+        ";
+        let expected = Value::FixNum(1);
+        eval_script(program, expected);
+    }
 
-    // #[test]
-    // fn func4() {
-    //     let program = "
-    //     a = 1
-    //     def foo
-    //         a = 2
-    //     end
-    //     foo()
-    //     ";
-    //     let expected = Value::FixNum(2);
-    //     eval_script(program, expected);
-    // }
+    #[test]
+    fn func4() {
+        let program = "
+        a = 1
+        def foo
+            a = 2
+        end
+        foo()
+        ";
+        let expected = Value::FixNum(2);
+        eval_script(program, expected);
+    }
 
     // #[test]
     // fn new_fn1() {

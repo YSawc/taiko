@@ -43,8 +43,8 @@ pub enum Env {
 #[derive(Clone)]
 pub enum MethodInfo {
     RubyFunc {
-        params: ISeq,
-        body: Box<u8>,
+        params: Vec<Value>,
+        body: Vec<ISeq>,
         local_scope: LocalScope,
     },
     BuiltinFunc {
@@ -56,8 +56,12 @@ pub enum MethodInfo {
 impl std::fmt::Debug for MethodInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MethodInfo::RubyFunc { params, body, .. } => {
-                write!(f, "RubyFunc {:?} {:?}", params, body)
+            MethodInfo::RubyFunc {
+                params,
+                body,
+                local_scope,
+            } => {
+                write!(f, "RubyFunc {:?} {:?} {:?}", params, body, local_scope)
             }
             MethodInfo::BuiltinFunc { name, .. } => write!(f, "BuiltinFunc {:?}", name),
         }
@@ -312,6 +316,12 @@ impl VM {
 }
 
 impl VM {
+    pub fn gen_array_with_len(&mut self, array: &Vec<Node>) {
+        self.gen_nodes(array.to_vec());
+        let len = array.len();
+        self.gen_comp_usize(len);
+    }
+
     pub fn gen(&mut self, node: &Node) {
         // println!("&node.kind: {:?}", &node.kind);
         match &node.kind {
@@ -398,9 +408,7 @@ impl VM {
             }
             NodeKind::BlockDecl(body) => self.gen(body),
             NodeKind::Array(nodes) => {
-                self.gen_nodes(nodes.to_vec());
-                let len = nodes.len();
-                self.gen_comp_usize(len);
+                self.gen_array_with_len(nodes);
                 self.push_iseq(Inst::ARRAY);
             }
             NodeKind::ArrayIndex(nodes, num) => {
@@ -413,6 +421,15 @@ impl VM {
                 self.gen_body(then_);
                 self.gen_body(cond_);
                 self.push_iseq(Inst::IF);
+            }
+            NodeKind::FuncDecl(id, params, body) => {
+                let num = id.deref();
+                self.gen_comp_usize(*num);
+                self.gen_array_with_len(params);
+                self.push_iseq(Inst::INIT_FUNC);
+                self.gen_comp_usize(*num);
+                self.gen_body(body);
+                self.push_iseq(Inst::FUNC_DECL);
             }
             // NodeKind::For(id, iter, body) => {
             //     let id = match id.kind {
@@ -701,7 +718,10 @@ impl VM {
     }
 
     pub fn eval_seq(&mut self) -> Result<(), RuntimeError> {
+        // println!("self.stack.iseqs: {:?}", self.stack.iseqs);
         loop {
+            // println!("self.iseq(): {:?}", self.iseq());
+            // println!("self.exec_stack: {:?}", self.exec_stack);
             match self.iseq() {
                 Inst::NIL => {
                     self.stack_pos += 1;
@@ -919,9 +939,46 @@ impl VM {
                     };
                     self.exec_stack.push(val);
                 }
+                Inst::INIT_FUNC => {
+                    self.stack_pos += 1;
+                    let params = self.get_array();
+                    let id = self.exec_stack().ident();
+                    let mut local_scope = LocalScope {
+                        lvar_table: FxHashMap::default(),
+                        propagated_table: FxHashMap::default(),
+                    };
+                    for mut n in params {
+                        self.lvar_table_as_mut()
+                            .insert(IdentId(n.usize()), Value::Nil);
+                        local_scope.lvar_table.insert(n.ident(), Value::Nil);
+                    }
+                    self.env_info().method_table.insert(
+                        id,
+                        MethodInfo::RubyFunc {
+                            params: vec![],
+                            body: vec![],
+                            local_scope,
+                        },
+                    );
+                    self.new_propagated_local_var_stack();
+                    self.save_eval_info();
+                }
+                Inst::FUNC_DECL => {
+                    self.stack_pos += 1;
+                    self.return_stack();
+                    let body_ = self.get_body();
+                    self.scope_stack.pop();
+                    let id = self.exec_stack().ident();
+
+                    match self.env_info().method_table.get_mut(&id).unwrap() {
+                        MethodInfo::RubyFunc { body, .. } => {
+                            *body = body_;
+                        }
+                        _ => unreachable!(),
+                    }
+                }
                 Inst::IDENT => {
                     let mut id = self.push_fixnum();
-                    println!("id: {:?}", id);
                     match self.lvar_table_as_mut().clone().get(&id.ident()) {
                         Some(val) => self.exec_stack.push(val.to_owned()),
                         None => {
