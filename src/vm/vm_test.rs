@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod test {
-    use crate::class::class::*;
-    use crate::instance::instance::*;
+    // use crate::class::class::*;
+    // use crate::instance::instance::*;
     use crate::parser::parser::*;
-    use crate::value::value::Value::Instance;
+    // use crate::value::value::Value::Instance;
     use crate::value::value::*;
     use crate::vm::vm::*;
 
@@ -13,7 +13,7 @@ mod test {
 
         let mut vm = VM::new();
         vm.init(parser.lexer.source_info, parser.ident_table, node);
-        vm.eval_seq();
+        let _ = vm.eval_seq();
         let val = vm.exec_stack();
         if val != expected {
             panic!("Expected:{:?} Got:{:?}", expected, val);
@@ -78,11 +78,13 @@ mod test {
         let program = "
         a = 1
         def foo
+            a
             a = 2
         end
         foo()
+        a
         ";
-        let expected = Value::FixNum(2);
+        let expected = Value::FixNum(1);
         eval_script(program, expected);
     }
 

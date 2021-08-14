@@ -44,7 +44,7 @@ pub enum Env {
 pub enum MethodInfo {
     RubyFunc {
         params: Vec<Value>,
-        body: Vec<ISeq>,
+        ptr: usize,
         local_scope: LocalScope,
     },
     BuiltinFunc {
@@ -58,10 +58,10 @@ impl std::fmt::Debug for MethodInfo {
         match self {
             MethodInfo::RubyFunc {
                 params,
-                body,
+                ptr,
                 local_scope,
             } => {
-                write!(f, "RubyFunc {:?} {:?} {:?}", params, body, local_scope)
+                write!(f, "RubyFunc {:?} {:?} {:?}", params, ptr, local_scope)
             }
             MethodInfo::BuiltinFunc { name, .. } => write!(f, "BuiltinFunc {:?}", name),
         }
@@ -625,6 +625,14 @@ impl VM {
         }
     }
 
+    fn copy_ptr(&mut self) -> usize {
+        match self.copy_exec_stack() {
+            Value::FixNum(n) => n as usize,
+            Value::Nil => 0,
+            _ => unimplemented!(),
+        }
+    }
+
     fn get_ptr(&mut self) -> usize {
         match self.exec_stack() {
             Value::FixNum(n) => n as usize,
@@ -636,6 +644,10 @@ impl VM {
     fn push_fixnum(&mut self) -> Value {
         let val = self.get_val();
         Value::FixNum(val as i64)
+    }
+
+    pub fn copy_exec_stack(&mut self) -> Value {
+        self.exec_stack.last().unwrap().to_owned()
     }
 
     pub fn exec_stack(&mut self) -> Value {
@@ -670,6 +682,19 @@ impl VM {
         let ptr = self.get_ptr();
         if ptr == 0 {
             Value::Nil
+        } else {
+            self.save_eval_info();
+            self.stack_pos = 0;
+            self.iseq_pos = ptr;
+            self.eval_seq().unwrap();
+            self.return_stack();
+            self.exec_stack()
+        }
+    }
+
+    fn eval_body_with_args_ptr(&mut self, ptr: usize) -> Value {
+        if ptr == 0 {
+            unimplemented!();
         } else {
             self.save_eval_info();
             self.stack_pos = 0;
@@ -881,33 +906,33 @@ impl VM {
                     self.push_env(receiver.clone());
 
                     match info {
-                        // MethodInfo::RubyFunc {
-                        //     params,
-                        //     body,
-                        //     local_scope,
-                        // } => {
-                        //     let args_len = args.len();
-                        //     self.scope_stack.push(local_scope);
-                        //     for (i, param) in params.iter().enumerate() {
-                        //         let arg = if args_len > i {
-                        //             args[i].clone()
-                        //         } else {
-                        //             Value::Nil
-                        //         };
-                        //         // self.lvar_table_as_mut().insert(param_id, arg);
-                        //     }
-                        //     self.pop_env_if_true(f);
-                        //     self.scope_stack.pop();
-                        //     let val = self.eval_seq(*body)?;
-                        //     Ok(val)
-                        // }
+                        MethodInfo::RubyFunc {
+                            params,
+                            ptr,
+                            local_scope,
+                        } => {
+                            self.new_propagated_local_var_stack();
+                            let args_len = args.len();
+                            self.scope_stack.push(local_scope);
+                            for (i, param) in params.iter().enumerate() {
+                                println!("i: {:?} param: {:?}", i, param);
+                                let arg = if args_len > i {
+                                    args[i].clone()
+                                } else {
+                                    Value::Nil
+                                };
+                                self.lvar_table_as_mut().insert(IdentId(i), arg);
+                            }
+                            self.eval_body_with_args_ptr(ptr);
+                            self.pop_env_if_true(f);
+                            self.scope_stack.pop();
+                        }
                         MethodInfo::BuiltinFunc { func, .. } => {
                             let args = Args { body, args, table };
                             self.pop_env_if_true(f);
                             let val = func(self, receiver, args);
                             self.exec_stack.push(val);
                         }
-                        _ => unimplemented!(),
                     }
                     self.return_stack();
                 }
@@ -956,32 +981,40 @@ impl VM {
                         id,
                         MethodInfo::RubyFunc {
                             params: vec![],
-                            body: vec![],
+                            ptr: 0,
                             local_scope,
                         },
                     );
                     self.new_propagated_local_var_stack();
-                    self.save_eval_info();
                 }
                 Inst::FUNC_DECL => {
                     self.stack_pos += 1;
+                    self.save_eval_info();
+                    let ptr_ = self.copy_ptr();
+                    let scope_stack = self.scope_stack.last().unwrap().to_owned();
+                    self.get_body();
                     self.return_stack();
-                    let body_ = self.get_body();
-                    self.scope_stack.pop();
                     let id = self.exec_stack().ident();
 
                     match self.env_info().method_table.get_mut(&id).unwrap() {
-                        MethodInfo::RubyFunc { body, .. } => {
-                            *body = body_;
+                        MethodInfo::RubyFunc {
+                            ptr, local_scope, ..
+                        } => {
+                            *ptr = ptr_;
+                            *local_scope = scope_stack;
                         }
                         _ => unreachable!(),
                     }
+                    self.scope_stack.pop();
                 }
                 Inst::IDENT => {
                     let mut id = self.push_fixnum();
                     match self.lvar_table_as_mut().clone().get(&id.ident()) {
                         Some(val) => self.exec_stack.push(val.to_owned()),
                         None => {
+                            println!("self.lvar_table_as_mut(): {:?}", self.lvar_table_as_mut());
+                            println!("self.ident_table: {:?}", self.ident_table);
+                            println!("id: {:?}", id);
                             panic!("undefined local variable.")
                         }
                     }

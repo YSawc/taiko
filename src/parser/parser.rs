@@ -514,7 +514,7 @@ impl Parser {
             let mut args = ParsedArgs::new();
             args.args = self.parse_parenthesize_args()?;
             let end_loc = self.loc();
-            println!("node: {:?}", node);
+            // println!("node: {:?}", node);
 
             return Ok(Node::new_send(
                 Node::new(NodeKind::SelfValue, loc),
