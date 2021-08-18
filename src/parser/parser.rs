@@ -348,12 +348,12 @@ impl Parser {
 
     pub fn parse_if_then(&mut self) -> Result<Node, ParseError> {
         let cond = self.parse_expr()?;
-        println!("if cond {}", cond);
+        // println!("if cond {}", cond);
         self.parse_then()?;
         let then_ = self.parse_comp_stmt()?;
-        println!("if then {}", then_);
+        // println!("if then {}", then_);
         let mut else_ = Node::new_comp_stmt();
-        println!("if else_ {}", else_);
+        // println!("if else_ {}", else_);
         if self.get_if_reserved(Reserved::Elsif) {
             else_ = self.parse_if_then()?;
         } else if self.get_if_reserved(Reserved::Else) {

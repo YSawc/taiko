@@ -1,5 +1,6 @@
 use crate::args::args::*;
 use crate::class::class::*;
+
 use crate::instance::instance::*;
 use crate::node::node::*;
 use crate::util::annot::*;
@@ -16,8 +17,6 @@ pub type ISeq = u8;
 #[derive(Debug, Clone)]
 pub struct VM {
     pub stack: Stack,
-    pub stack_pos: usize,
-    pub iseq_pos: usize,
     pub exec_stack: Vec<Value>,
     pub source_info: SourceInfo,
     pub ident_table: IdentifierTable,
@@ -43,7 +42,7 @@ pub enum Env {
 #[derive(Clone)]
 pub enum MethodInfo {
     RubyFunc {
-        params: Vec<Value>,
+        params: Vec<IdentId>,
         ptr: usize,
         local_scope: LocalScope,
     },
@@ -114,8 +113,6 @@ impl VM {
     pub fn new() -> Self {
         Self {
             stack: Stack::new(),
-            stack_pos: 0,
-            iseq_pos: 0,
             exec_stack: vec![],
             source_info: SourceInfo::new(),
             ident_table: IdentifierTable::new(),
@@ -551,13 +548,15 @@ impl VM {
     // }
 
     fn new_propagated_local_var_stack(&mut self) {
-        let mut last_scope_stack = self.scope_stack.last().unwrap().to_owned();
+        let mut last_scope_stack = self.scope_stack.last_mut().unwrap().to_owned();
         last_scope_stack.propagated_table = last_scope_stack.clone().lvar_table;
         self.scope_stack.push(last_scope_stack);
     }
 
     pub fn init_iseq(&mut self, node: Node) {
-        self.stack.iseqs.insert(self.iseq_pos, vec![]);
+        self.stack.stack_poses.push(0);
+        self.stack.iseq_poses.push(0);
+        self.stack.iseqs.insert(0, vec![]);
         self.gen(&node);
         self.push_iseq(Inst::END);
         // println!("{:?}", self.stack.iseqs);
@@ -566,7 +565,7 @@ impl VM {
 
     fn get_val(&mut self) -> usize {
         match self.iseq() {
-            Inst::FIXNUM | Inst::IDENT | Inst::TABLE_IDENT => self.stack_pos += 1,
+            Inst::FIXNUM | Inst::IDENT | Inst::TABLE_IDENT => self.plus_stack_pos(1),
             _ => unimplemented!(),
         }
         let mut num = 0;
@@ -578,12 +577,12 @@ impl VM {
         num += (self.iseq_idx(5) as usize) << 16;
         num += (self.iseq_idx(6) as usize) << 8;
         num += self.iseq_idx(7) as usize;
-        self.stack_pos += 8;
+        self.plus_stack_pos(8);
         num as usize
     }
 
     pub fn insert_num(&mut self, num: usize) {
-        let pos = self.stack_pos;
+        let pos = self.stack_pos();
         self.current_iseq().insert(pos, Inst::FIXNUM as u8);
         self.current_iseq().insert(pos + 1, (num >> 56) as u8);
         self.current_iseq().insert(pos + 2, (num >> 48) as u8);
@@ -596,7 +595,7 @@ impl VM {
     }
 
     pub fn insert_iseq(&mut self, inst: u8) {
-        let pos = self.stack_pos;
+        let pos = self.stack_pos();
         self.current_iseq().insert(pos, inst);
     }
 
@@ -604,8 +603,32 @@ impl VM {
         self.current_iseq().push(inst);
     }
 
+    pub fn plus_stack_pos(&mut self, num: usize) {
+        *self.stack.stack_poses.last_mut().unwrap() += num;
+    }
+
+    pub fn set_stack_pos(&mut self, num: usize) {
+        *self.stack.stack_poses.last_mut().unwrap() = num;
+    }
+
+    pub fn stack_pos_as_mut(&mut self) -> usize {
+        *self.stack.stack_poses.last_mut().unwrap()
+    }
+
+    pub fn stack_pos(&mut self) -> usize {
+        *self.stack.stack_poses.last().unwrap()
+    }
+
+    pub fn iseq_pos(&mut self) -> usize {
+        *self.stack.iseq_poses.last().unwrap()
+    }
+
+    pub fn iseq_pos_mut(&mut self) -> &mut usize {
+        &mut *self.stack.iseq_poses.last_mut().unwrap()
+    }
+
     pub fn current_iseq(&mut self) -> &mut Vec<ISeq> {
-        let pos = self.iseq_pos;
+        let pos = self.iseq_pos();
         self.stack.iseqs.get_mut(&pos).unwrap()
     }
 
@@ -614,12 +637,12 @@ impl VM {
             NodeKind::None => self.push_iseq(Inst::NIL),
             _ => {
                 let ptr = node as *const _ as usize;
-                let current_pos = self.stack_pos;
-                self.iseq_pos = ptr;
-                self.stack.iseqs.insert(self.iseq_pos, vec![]);
+                self.stack.iseq_poses.push(ptr);
+                let iseq_pos = self.iseq_pos();
+                self.stack.iseqs.insert(iseq_pos, vec![]);
                 self.gen(node);
                 self.current_iseq().push(Inst::END);
-                self.iseq_pos = current_pos;
+                self.stack.iseq_poses.pop().unwrap();
                 self.gen_comp_usize(ptr);
             }
         }
@@ -662,6 +685,16 @@ impl VM {
         Value::Class(*classref)
     }
 
+    fn get_params(&mut self) -> Vec<IdentId> {
+        let mut arr: Vec<IdentId> = vec![];
+        let len = self.exec_stack().value();
+        for _ in 0..len {
+            arr.push(self.exec_stack().ident());
+        }
+        arr.reverse();
+        arr
+    }
+
     fn get_array(&mut self) -> Vec<Value> {
         let mut arr: Vec<Value> = vec![];
         let len = self.exec_stack().value();
@@ -673,8 +706,8 @@ impl VM {
     }
 
     fn save_eval_info(&mut self) {
-        self.stack.iseq_poses.push(self.iseq_pos);
-        self.stack.stack_poses.push(self.stack_pos);
+        self.stack.stack_poses.push(0);
+        self.stack.iseq_poses.push(0);
         self.stack.eval_stacks.push(self.exec_stack.to_owned());
     }
 
@@ -684,8 +717,8 @@ impl VM {
             Value::Nil
         } else {
             self.save_eval_info();
-            self.stack_pos = 0;
-            self.iseq_pos = ptr;
+            self.set_stack_pos(0);
+            self.stack.iseq_poses.push(ptr);
             self.eval_seq().unwrap();
             self.return_stack();
             self.exec_stack()
@@ -697,8 +730,8 @@ impl VM {
             unimplemented!();
         } else {
             self.save_eval_info();
-            self.stack_pos = 0;
-            self.iseq_pos = ptr;
+            self.set_stack_pos(0);
+            self.stack.iseq_poses.push(ptr);
             self.eval_seq().unwrap();
             self.return_stack();
             self.exec_stack()
@@ -710,55 +743,53 @@ impl VM {
         if ptr == 0 {
             vec![]
         } else {
-            self.stack_pos = 0;
-            self.iseq_pos = ptr;
+            *self.iseq_pos_mut() = ptr;
             self.current_iseq().clone()
         }
     }
 
     pub fn iseq(&mut self) -> u8 {
-        // println!(
-        //     "self.stack.iseqs[&self.iseq_pos][self.stack_pos]: {:?}",
-        //     self.stack.iseqs[&self.iseq_pos][self.stack_pos]
-        // );
-        // println!(
-        //     "self.stack.iseqs[&self.iseq_pos]: {:?}",
-        //     self.stack.iseqs[&self.iseq_pos]
-        // );
-
-        self.stack.iseqs[&self.iseq_pos][self.stack_pos]
+        let iseq_pos = self.iseq_pos();
+        let stack_pos = self.stack_pos();
+        self.stack.iseqs[&iseq_pos][stack_pos]
     }
 
     pub fn iseq_idx(&mut self, num: i64) -> u8 {
-        self.stack.iseqs[&self.iseq_pos][(self.stack_pos as i64 + num) as usize]
+        let iseq_pos = self.iseq_pos();
+        let stack_pos = self.stack_pos();
+        self.stack.iseqs[&iseq_pos][(stack_pos as i64 + num) as usize]
     }
 
     pub fn init_eval_stack(&mut self) {
-        self.stack_pos = 0;
+        self.set_stack_pos(0);
     }
 
     pub fn return_stack(&mut self) {
-        self.stack_pos = self.stack.stack_poses.pop().unwrap();
-        self.iseq_pos = self.stack.iseq_poses.pop().unwrap();
+        self.stack.stack_poses.pop().unwrap();
+        self.stack.iseq_poses.pop().unwrap();
     }
 
     pub fn eval_seq(&mut self) -> Result<(), RuntimeError> {
         // println!("self.stack.iseqs: {:?}", self.stack.iseqs);
         loop {
-            // println!("self.iseq(): {:?}", self.iseq());
+            // println!(
+            //     "self.iseq(): {:?}, self.iseq_pos(): {:?}",
+            //     self.iseq(),
+            //     self.iseq_pos()
+            // );
             // println!("self.exec_stack: {:?}", self.exec_stack);
             match self.iseq() {
                 Inst::NIL => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     self.exec_stack.push(Value::Nil);
                 }
                 Inst::SELF_VALUE => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     let val = self.class_stack();
                     self.exec_stack.push(val);
                 }
                 Inst::ASSIGN => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     let id = self.exec_stack().ident();
                     let rhs = self.exec_stack();
                     match self.lvar_table_as_mut().get_mut(&id) {
@@ -772,7 +803,7 @@ impl VM {
                     self.exec_stack.push(rhs);
                 }
                 Inst::END => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     if let Some(val) = self.exec_stack.pop() {
                         self.exec_stack.push(val);
                     } else {
@@ -785,7 +816,7 @@ impl VM {
                     self.exec_stack.push(val);
                 }
                 Inst::STRING => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     let id = self.exec_stack().ident();
                     let name = self.stack.ident_table.get_name(IdentId(*id));
                     self.env_info().ident_table.get_ident_id(&name);
@@ -793,108 +824,63 @@ impl VM {
                     self.exec_stack.push(val);
                 }
                 Inst::ADD => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     let rhs = self.exec_stack();
                     let lhs = self.exec_stack();
                     let val = self.eval_add(lhs, rhs)?;
                     self.exec_stack.push(val);
                 }
                 Inst::SUB => {
-                    println!();
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     let rhs = self.exec_stack();
                     let lhs = self.exec_stack();
                     let val = self.eval_sub(lhs, rhs)?;
                     self.exec_stack.push(val);
                 }
                 Inst::MUL => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     let rhs = self.exec_stack();
                     let lhs = self.exec_stack();
                     let val = self.eval_mul(lhs, rhs)?;
                     self.exec_stack.push(val);
                 }
                 Inst::DIV => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     let rhs = self.exec_stack();
                     let lhs = self.exec_stack();
                     let val = self.eval_div(lhs, rhs)?;
                     self.exec_stack.push(val);
                 }
                 Inst::EQ => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     let rhs = self.exec_stack();
                     let lhs = self.exec_stack();
                     let val = self.eval_eq(lhs, rhs)?;
                     self.exec_stack.push(val);
                 }
                 Inst::NE => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     let rhs = self.exec_stack();
                     let lhs = self.exec_stack();
                     let val = self.eval_neq(lhs, rhs)?;
                     self.exec_stack.push(val);
                 }
                 Inst::GT => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     let rhs = self.exec_stack();
                     let lhs = self.exec_stack();
                     let val = self.eval_gt(lhs, rhs)?;
                     self.exec_stack.push(val);
                 }
                 Inst::GE => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     let rhs = self.exec_stack();
                     let lhs = self.exec_stack();
                     let val = self.eval_ge(lhs, rhs)?;
                     self.exec_stack.push(val);
                 }
-                // Inst::DEF_FUNC => {
-                //     self.stack_pos += 1;
-                //     unimplemented!();
-                // }
-                // Inst::CALL_FUNC => {
-                //     self.stack_pos += 1;
-                //     unimplemented!();
-                // }
-                // Inst::DEF_CLASS => {
-                //     self.stack_pos += 1;
-                //     unimplemented!();
-                // }
-                // Inst::BLOCK_DECL => {
-                //     self.stack_pos += 1;
-                //     unimplemented!();
-                // }
-                // Inst::GET_INSTANCE_VAL => {
-                //     self.stack_pos += 1;
-                //     unimplemented!();
-                // }
-                // Inst::GET_CLASS_VAL => {
-                //     self.stack_pos += 1;
-                //     unimplemented!();
-                // }
-                // Inst::GET_GLOBAL_VAL => {
-                //     self.stack_pos += 1;
-                //     unimplemented!();
-                // }
-                // Inst::GET_CONST_VAL => {
-                //     self.stack_pos += 1;
-                //     unimplemented!();
-                // }
-                // Inst::PARAM => {
-                //     self.stack_pos += 1;
-                //     unimplemented!();
-                // }
-                // Inst::FUNC_DECL => {
-                //     self.stack_pos += 1;
-                //     unimplemented!();
-                // }
-                // Inst::CLASS_DECL => {
-                //     self.stack_pos += 1;
-                //     unimplemented!();
-                // }
                 Inst::SEND => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     self.save_eval_info();
                     let args = self.get_array();
                     let body = self.get_body();
@@ -915,17 +901,17 @@ impl VM {
                             let args_len = args.len();
                             self.scope_stack.push(local_scope);
                             for (i, param) in params.iter().enumerate() {
-                                println!("i: {:?} param: {:?}", i, param);
                                 let arg = if args_len > i {
                                     args[i].clone()
                                 } else {
                                     Value::Nil
                                 };
-                                self.lvar_table_as_mut().insert(IdentId(i), arg);
+                                self.lvar_table_as_mut().insert(*param, arg);
                             }
-                            self.eval_body_with_args_ptr(ptr);
+                            let val = self.eval_body_with_args_ptr(ptr);
                             self.pop_env_if_true(f);
                             self.scope_stack.pop();
+                            self.exec_stack.push(val);
                         }
                         MethodInfo::BuiltinFunc { func, .. } => {
                             let args = Args { body, args, table };
@@ -937,12 +923,12 @@ impl VM {
                     self.return_stack();
                 }
                 Inst::ARRAY => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     let arr = self.get_array();
                     self.exec_stack.push(Value::Array(arr));
                 }
                 Inst::ARRAY_INDEX => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     let idx = self.exec_stack().value() as usize;
                     match self.exec_stack() {
                         Value::Array(arr) => {
@@ -953,7 +939,7 @@ impl VM {
                     }
                 }
                 Inst::IF => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     let val = if self.eval_body().bool() {
                         let val = self.eval_body();
                         self.exec_stack();
@@ -965,33 +951,37 @@ impl VM {
                     self.exec_stack.push(val);
                 }
                 Inst::INIT_FUNC => {
-                    self.stack_pos += 1;
-                    let params = self.get_array();
+                    self.plus_stack_pos(1);
+                    let params = self.get_params();
                     let id = self.exec_stack().ident();
                     let mut local_scope = LocalScope {
                         lvar_table: FxHashMap::default(),
                         propagated_table: FxHashMap::default(),
                     };
-                    for mut n in params {
+
+                    self.new_propagated_local_var_stack();
+                    let last_scope_stack = self.scope_stack.last_mut().unwrap().to_owned();
+                    local_scope.lvar_table = last_scope_stack.lvar_table;
+                    local_scope.propagated_table = last_scope_stack.propagated_table;
+
+                    for n in &params {
                         self.lvar_table_as_mut()
-                            .insert(IdentId(n.usize()), Value::Nil);
-                        local_scope.lvar_table.insert(n.ident(), Value::Nil);
+                            .insert(IdentId(**n), Value::FixNum(0));
+                        local_scope.lvar_table.insert(*n, Value::FixNum(0));
                     }
                     self.env_info().method_table.insert(
                         id,
                         MethodInfo::RubyFunc {
-                            params: vec![],
+                            params,
                             ptr: 0,
                             local_scope,
                         },
                     );
-                    self.new_propagated_local_var_stack();
                 }
                 Inst::FUNC_DECL => {
-                    self.stack_pos += 1;
+                    self.plus_stack_pos(1);
                     self.save_eval_info();
                     let ptr_ = self.copy_ptr();
-                    let scope_stack = self.scope_stack.last().unwrap().to_owned();
                     self.get_body();
                     self.return_stack();
                     let id = self.exec_stack().ident();
@@ -1001,7 +991,6 @@ impl VM {
                             ptr, local_scope, ..
                         } => {
                             *ptr = ptr_;
-                            *local_scope = scope_stack;
                         }
                         _ => unreachable!(),
                     }
