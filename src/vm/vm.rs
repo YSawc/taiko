@@ -276,6 +276,7 @@ impl VM {
         match receiver {
             Value::Array(contents) => {
                 for c in contents {
+                    self.set_stack_pos(0);
                     self.new_propagated_local_var_stack();
                     self.lvar_table_as_mut()
                         .insert(IdentId(args.table.into()), c);
@@ -987,9 +988,7 @@ impl VM {
                     let id = self.exec_stack().ident();
 
                     match self.env_info().method_table.get_mut(&id).unwrap() {
-                        MethodInfo::RubyFunc {
-                            ptr, local_scope, ..
-                        } => {
+                        MethodInfo::RubyFunc { ptr, .. } => {
                             *ptr = ptr_;
                         }
                         _ => unreachable!(),
