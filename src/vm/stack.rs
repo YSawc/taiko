@@ -9,7 +9,7 @@ pub struct Stack {
     pub ident_table: IdentifierTable,
     pub stack_poses: Vec<usize>,
     pub iseq_poses: Vec<usize>,
-    pub eval_stacks: Vec<Vec<Value>>,
+    pub exec_stack: Vec<Vec<Value>>,
 }
 
 impl Stack {
@@ -19,7 +19,7 @@ impl Stack {
             ident_table: IdentifierTable::default(),
             stack_poses: vec![],
             iseq_poses: vec![],
-            eval_stacks: vec![],
+            exec_stack: vec![],
         }
     }
 }

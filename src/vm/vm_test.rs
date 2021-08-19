@@ -14,29 +14,29 @@ mod test {
         let mut vm = VM::new();
         vm.init(parser.lexer.source_info, parser.ident_table, node);
         let _ = vm.eval_seq();
-        let val = vm.exec_stack();
+        let val = vm.pop_value();
         if val != expected {
             panic!("Expected:{:?} Got:{:?}", expected, val);
         }
     }
 
-    // #[test]
-    // fn func1() {
-    //     let program = "
-    //         def fact(a)
-    //             puts(a)
-    //             if a == 1
-    //                 1
-    //             else
-    //                 a * fact(a-1)
-    //             end
-    //         end
+    #[test]
+    fn func1() {
+        let program = "
+            def fact(a)
+                puts(a)
+                if a == 1
+                    1
+                else
+                    a * fact(a-1)
+                end
+            end
 
-    //         fact(5)
-    //     ";
-    //     let expected = Value::FixNum(120);
-    //     eval_script(program, expected);
-    // }
+            fact(5)
+        ";
+        let expected = Value::FixNum(120);
+        eval_script(program, expected);
+    }
 
     // #[test]
     // fn func2() {
