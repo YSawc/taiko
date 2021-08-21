@@ -1033,9 +1033,10 @@ impl VM {
                     let val = info.to_val();
                     self.add_subclass(info, inheritence_class_id);
                     self.const_table.insert(id, val);
-                    self.save_exec_stack();
+                    self.new_propagated_local_var_stack();
                     self.eval_body_with_args_ptr(ptr);
                     self.env.pop().unwrap();
+                    self.scope_stack.pop();
                 }
                 Inst::IDENT => {
                     let mut id = self.push_fixnum();

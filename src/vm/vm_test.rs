@@ -132,23 +132,28 @@ mod test {
         eval_script(program, expected);
     }
 
-    // #[test]
-    // fn assert2() {
-    //     let program = r#"
-    //     a = 1
-    //     class Foo
-    //       a = 2
-    //       def bar(b)
-    //         b*2
-    //       end
-    //     end
+    #[test]
+    fn assert2() {
+        let program = r#"
+        a = 1
+        class Foo
+          a = 2
+          def bar(b)
+            b*2
+          end
 
-    //     assert(a, 1)
-    //     assert(Foo.new.bar(5), 10)
-    //     "#;
-    //     let expected = Value::Nil;
-    //     eval_script(program, expected);
-    // }
+          def get_a
+            a
+          end
+        end
+
+        assert(a, 1)
+        assert(Foo.new.bar(5), 10)
+        assert(Foo.new.get_a(), 2)
+        "#;
+        let expected = Value::Nil;
+        eval_script(program, expected);
+    }
 
     #[test]
     fn if1() {
