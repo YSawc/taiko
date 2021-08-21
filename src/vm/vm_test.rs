@@ -101,27 +101,27 @@ mod test {
         eval_script(program, expected);
     }
 
-    // #[test]
-    // fn propagated_local_var1() {
-    //     let program = r#"
-    //         a = 1
-    //         class Foo
-    //           a = 2
-    //           def bar(b)
-    //             b*2
-    //           end
+    #[test]
+    fn propagated_local_var1() {
+        let program = r#"
+            a = 1
+            class Foo
+              a = 2
+              def bar(b)
+                b*2
+              end
 
-    //           def bar2
-    //             a
-    //           end
-    //         end
+              def bar2
+                a
+              end
+            end
 
-    //         assert(Foo.new.bar(5), 10)
-    //         Foo.new.bar2
-    //         "#;
-    //     let expected = Value::FixNum(2);
-    //     eval_script(program, expected);
-    // }
+            assert(Foo.new.bar(5), 10)
+            Foo.new.bar2
+            "#;
+        let expected = Value::FixNum(2);
+        eval_script(program, expected);
+    }
 
     #[test]
     fn assert1() {

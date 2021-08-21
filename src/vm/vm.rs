@@ -1028,9 +1028,14 @@ impl VM {
                     self.return_stack();
                     let id = self.pop_value().ident();
                     let mut info = self.new_class_info(id, ptr);
+                    let class_ref = self.class_ref_with_id(id);
+                    self.env.push(Env::ClassRef(class_ref));
                     let val = info.to_val();
                     self.add_subclass(info, inheritence_class_id);
                     self.const_table.insert(id, val);
+                    self.save_exec_stack();
+                    self.eval_body_with_args_ptr(ptr);
+                    self.env.pop().unwrap();
                 }
                 Inst::IDENT => {
                     let mut id = self.push_fixnum();
@@ -1082,14 +1087,14 @@ impl VM {
         unimplemented!()
     }
 
-    // fn class_ref_with_id(&mut self, ident_id: IdentId) -> ClassRef {
-    //     for t in self.class_table.table.to_owned() {
-    //         if t.1.id == ident_id {
-    //             return t.0;
-    //         }
-    //     }
-    //     unimplemented!()
-    // }
+    fn class_ref_with_id(&mut self, ident_id: IdentId) -> ClassRef {
+        for t in self.class_table.table.to_owned() {
+            if t.1.id == ident_id {
+                return t.0;
+            }
+        }
+        unimplemented!()
+    }
 
     fn class_info_with_instance(&mut self, instance_ref: InstanceRef) -> &mut ClassInfo {
         let class_ref = self.instance_ref(instance_ref).class_id;
