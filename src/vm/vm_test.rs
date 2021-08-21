@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod test {
-    // use crate::class::class::*;
-    // use crate::instance::instance::*;
+    use crate::class::class::*;
+    use crate::instance::instance::*;
     use crate::parser::parser::*;
-    // use crate::value::value::Value::Instance;
+    use crate::value::value::Value::Instance;
     use crate::value::value::*;
     use crate::vm::vm::*;
 
@@ -38,27 +38,27 @@ mod test {
         eval_script(program, expected);
     }
 
-    // #[test]
-    // fn func2() {
-    //     let program = "
-    //     def self1
-    //     puts(self)
-    //     end
+    #[test]
+    fn func2() {
+        let program = "
+        def self1
+        puts(self)
+        end
 
-    //     self1()
+        self1()
 
-    //     class Foo
-    //         puts(self)
-    //         class Bar
-    //             puts(self)
-    //         end
-    //     end
+        class Foo
+            puts(self)
+            class Bar
+                puts(self)
+            end
+        end
 
-    //     self1()
-    //     ";
-    //     let expected = Value::Nil;
-    //     eval_script(program, expected);
-    // }
+        self1()
+        ";
+        let expected = Value::Nil;
+        eval_script(program, expected);
+    }
 
     #[test]
     fn func3() {
@@ -88,18 +88,18 @@ mod test {
         eval_script(program, expected);
     }
 
-    // #[test]
-    // fn new_fn1() {
-    //     let program = "
-    //     class Foo
-    //     end
-    //     Foo.new
-    //     Foo.new
-    //     Foo.new
-    //     ";
-    //     let expected = Instance(InstanceRef(2));
-    //     eval_script(program, expected);
-    // }
+    #[test]
+    fn new_fn1() {
+        let program = "
+        class Foo
+        end
+        Foo.new
+        Foo.new
+        Foo.new
+        ";
+        let expected = Instance(InstanceRef(2));
+        eval_script(program, expected);
+    }
 
     // #[test]
     // fn propagated_local_var1() {
@@ -222,16 +222,16 @@ mod test {
         eval_script(program, expected);
     }
 
-    // #[test]
-    // fn self_class1() {
-    //     let program = "
-    //         class Bar
-    //         end
-    //         Bar.class
-    //     ";
-    //     let expected = Value::SelfClass(Class::Class);
-    //     eval_script(program, expected);
-    // }
+    #[test]
+    fn self_class1() {
+        let program = "
+            class Bar
+            end
+            Bar.class
+        ";
+        let expected = Value::SelfClass(Class::Class);
+        eval_script(program, expected);
+    }
 
     #[test]
     fn times1() {

@@ -139,7 +139,7 @@ impl VM {
         self.ident_table = ident_table;
 
         let id = self.ident_table.get_ident_id(&"top".to_string());
-        let classref = self.new_class(id, Node::new_comp_stmt());
+        let classref = self.new_class(id, 0);
         self.env.push(Env::ClassRef(classref));
         self.class_stack.push(classref);
 
@@ -318,6 +318,13 @@ impl VM {
         self.gen_comp_usize(len);
     }
 
+    pub fn gen_num_option(&mut self, id_option: Option<IdentId>) {
+        match id_option {
+            Some(id) => self.gen_comp_usize(*id),
+            None => self.push_iseq(Inst::NIL),
+        }
+    }
+
     pub fn gen(&mut self, node: &Node) {
         // println!("&node.kind: {:?}", &node.kind);
         match &node.kind {
@@ -395,6 +402,10 @@ impl VM {
                 let num = id.deref();
                 self.gen_ident(*num);
             }
+            NodeKind::Const(id) => {
+                let num = id.deref();
+                self.gen_const(*num);
+            }
             NodeKind::TableIdent(id) => {
                 let num = id.deref();
                 self.gen_table_ident(*num);
@@ -427,31 +438,13 @@ impl VM {
                 self.gen_body(body);
                 self.push_iseq(Inst::FUNC_DECL);
             }
-            // NodeKind::For(id, iter, body) => {
-            //     let id = match id.kind {
-            //         NodeKind::Ident(id) => id,
-            //         _ => return Err(self.error_nomethod("Expected an identifier.")),
-            //     };
-            //     let (start, end) = match &iter.kind {
-            //         NodeKind::Range(start, end) => (start, end),
-            //         _ => return Err(self.error_nomethod("Expected Range.")),
-            //     };
-            //     self.gen(start)?;
-            //     self.gen_set_local(id);
-            //     let p = self.current();
-            //     self.gen(end)?;
-            //     self.gen_get_local(id);
-            //     self.iseq.push(Inst::GE);
-            //     let src = self.gen_jmp_if_false();
-            //     self.gen(body)?;
-            //     self.gen_get_local(id);
-            //     self.gen_fixnum(1);
-            //     self.iseq.push(Inst::ADD);
-            //     self.gen_set_local(id);
-
-            //     self.gen_jmp_back(p);
-            //     self.write_disp_from_cur(src);
-            // }
+            NodeKind::ClassDecl(id, body, inheritence_class_id) => {
+                let num = id.deref();
+                self.gen_comp_usize(*num);
+                self.gen_body(body);
+                self.gen_num_option(*inheritence_class_id);
+                self.push_iseq(Inst::CLASS_DECL);
+            }
             NodeKind::Assign(lhs, rhs) => {
                 self.gen(rhs);
                 match lhs.kind {
@@ -516,6 +509,18 @@ impl VM {
         self.push_iseq(num as u8);
     }
 
+    pub fn gen_const(&mut self, num: usize) {
+        self.push_iseq(Inst::CONST);
+        self.push_iseq((num >> 56) as u8);
+        self.push_iseq((num >> 48) as u8);
+        self.push_iseq((num >> 40) as u8);
+        self.push_iseq((num >> 32) as u8);
+        self.push_iseq((num >> 24) as u8);
+        self.push_iseq((num >> 16) as u8);
+        self.push_iseq((num >> 8) as u8);
+        self.push_iseq(num as u8);
+    }
+
     pub fn gen_table_ident(&mut self, num: usize) {
         self.push_iseq(Inst::TABLE_IDENT);
         self.push_iseq((num >> 56) as u8);
@@ -539,6 +544,11 @@ impl VM {
 
     pub fn local_scope(&mut self) -> &mut LocalScope {
         self.scope_stack.last_mut().unwrap()
+    }
+
+    fn new_class_info(&mut self, id: IdentId, ptr: usize) -> ClassRef {
+        let name = self.ident_table.get_name(id);
+        self.class_table.new_class(id, name, ptr)
     }
 
     // fn new_class_info(&mut self, id: IdentId, body: Node) -> ClassRef {
@@ -565,7 +575,7 @@ impl VM {
 
     fn get_val(&mut self) -> usize {
         match self.iseq() {
-            Inst::FIXNUM | Inst::IDENT | Inst::TABLE_IDENT => self.plus_stack_pos(1),
+            Inst::FIXNUM | Inst::IDENT | Inst::TABLE_IDENT | Inst::CONST => self.plus_stack_pos(1),
             _ => unimplemented!(),
         }
         let mut num = 0;
@@ -1009,9 +1019,34 @@ impl VM {
                     }
                     self.scope_stack.pop();
                 }
+                Inst::CLASS_DECL => {
+                    self.plus_stack_pos(1);
+                    let inheritence_class_id = self.pop_value().option_ident();
+                    self.save_eval_info();
+                    let ptr = self.copy_ptr();
+                    self.get_body();
+                    self.return_stack();
+                    let id = self.pop_value().ident();
+                    let mut info = self.new_class_info(id, ptr);
+                    let val = info.to_val();
+                    self.add_subclass(info, inheritence_class_id);
+                    self.const_table.insert(id, val);
+                }
                 Inst::IDENT => {
                     let mut id = self.push_fixnum();
                     match self.lvar_table_as_mut().clone().get(&id.ident()) {
+                        Some(val) => self.exec_stack().push(val.to_owned()),
+                        None => {
+                            println!("self.lvar_table_as_mut(): {:?}", self.lvar_table_as_mut());
+                            println!("self.ident_table: {:?}", self.ident_table);
+                            println!("id: {:?}", id);
+                            panic!("undefined local variable.")
+                        }
+                    }
+                }
+                Inst::CONST => {
+                    let id = self.push_fixnum().ident();
+                    match self.const_table.clone().get(&id) {
                         Some(val) => self.exec_stack().push(val.to_owned()),
                         None => {
                             println!("self.lvar_table_as_mut(): {:?}", self.lvar_table_as_mut());
@@ -1093,6 +1128,15 @@ impl VM {
     //         .unwrap()
     //         .to_owned()
     // }
+
+    fn add_subclass(&mut self, info: ClassRef, inheritence_class_id: Option<IdentId>) {
+        if let Some(inheritence_class_id) = inheritence_class_id {
+            let class = self.class_info_with_ref(info);
+            class
+                .subclass
+                .insert(inheritence_class_id, ClassRef(*inheritence_class_id + 1));
+        }
+    }
 
     // fn add_subclass(&mut self, info: ClassRef, inheritence_class_id: Option<IdentId>) {
     //     if let Some(inheritence_class_id) = inheritence_class_id {
@@ -1244,9 +1288,9 @@ impl VM {
 }
 
 impl VM {
-    pub fn new_class(&mut self, id: IdentId, body: Node) -> ClassRef {
+    pub fn new_class(&mut self, id: IdentId, ptr: usize) -> ClassRef {
         let name = self.ident_table.get_name(id);
-        let class_ref = self.class_table.new_class(id, name, body);
+        let class_ref = self.class_table.new_class(id, name, ptr);
         let id = self.ident_table.get_ident_id(&"new".to_string());
         let info = MethodInfo::BuiltinFunc {
             name: "new".to_string(),

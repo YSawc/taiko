@@ -17,6 +17,8 @@ impl Inst {
     pub const IF: u8 = 13;
     pub const INIT_FUNC: u8 = 14;
     pub const FUNC_DECL: u8 = 15;
+    pub const CLASS_DECL: u8 = 16;
+    pub const CONST: u8 = 17;
 
     pub const ADD: u8 = 40;
     pub const SUB: u8 = 41;

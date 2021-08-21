@@ -24,6 +24,14 @@ impl Value {
         }
     }
 
+    pub fn option_ident(&mut self) -> Option<IdentId> {
+        match self {
+            Value::FixNum(num) => Some(IdentId((*num) as usize)),
+            Value::Nil => None,
+            _ => unimplemented!("Non value detected."),
+        }
+    }
+
     pub fn ident(&mut self) -> IdentId {
         match self {
             Value::FixNum(num) => IdentId((*num) as usize),
