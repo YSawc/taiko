@@ -351,77 +351,77 @@ mod test {
     //     eval_script(program, expected);
     // }
 
-    // #[test]
-    // fn class2() {
-    //     let program = "
-    //         class Car
-    //           def setName(str)
-    //             @name = str
-    //           end
+    #[test]
+    fn class2() {
+        let program = "
+            class Car
+              def setName(str)
+                @name = str
+              end
 
-    //           def getName
-    //             @name
-    //           end
-    //         end
+              def getName
+                @name
+              end
+            end
 
-    //         car1 = Car.new
-    //         car1.setName('Legacy')
+            car1 = Car.new
+            car1.setName('Legacy')
 
-    //         car2 = Car.new
-    //         car2.setName('XV')
-    //         assert(car2.getName, 'XV')
-    //         assert(car1.getName, 'Legacy')
-    //     ";
-    //     let expected = Value::Nil;
-    //     eval_script(program, expected);
-    // }
+            car2 = Car.new
+            car2.setName('XV')
+            assert(car2.getName, 'XV')
+            assert(car1.getName, 'Legacy')
+        ";
+        let expected = Value::Nil;
+        eval_script(program, expected);
+    }
 
-    // #[test]
-    // fn instance_variables() {
-    //     let program = "
-    //         class Car
-    //           def setName(str)
-    //             @name = str
-    //           end
+    #[test]
+    fn instance_variables() {
+        let program = "
+            class Car
+              def setName(str)
+                @name = str
+              end
 
-    //           def getName
-    //             @name
-    //           end
-    //         end
+              def getName
+                @name
+              end
+            end
 
-    //         car1 = Car.new
-    //         car1.setName('Legacy')
-    //         car1.instance_variables
-    //     ";
-    //     let expected_strings = Value::String("@name".to_string());
-    //     let mut expected_vec = vec![];
-    //     expected_vec.push(expected_strings);
-    //     let expected_result = Value::Array(expected_vec);
-    //     eval_script(program, expected_result);
-    // }
+            car1 = Car.new
+            car1.setName('Legacy')
+            car1.instance_variables
+        ";
+        let expected_strings = Value::String("@name".to_string());
+        let mut expected_vec = vec![];
+        expected_vec.push(expected_strings);
+        let expected_result = Value::Array(expected_vec);
+        eval_script(program, expected_result);
+    }
 
-    // #[test]
-    // fn class_instance() {
-    //     let program = "
-    //         class Car
-    //           @@class_var = 2
+    #[test]
+    fn class_instance() {
+        let program = "
+            class Car
+              @@class_var = 2
 
-    //           def set_class_var(i)
-    //             @@class_var = i
-    //           end
+              def set_class_var(i)
+                @@class_var = i
+              end
 
-    //           def get_class_var
-    //             @@class_var
-    //           end
-    //         end
+              def get_class_var
+                @@class_var
+              end
+            end
 
-    //         car1 = Car.new
-    //         car1.set_class_var(22222)
-    //         car1.get_class_var
-    //     ";
-    //     let expected = Value::FixNum(22222);
-    //     eval_script(program, expected);
-    // }
+            car1 = Car.new
+            car1.set_class_var(22222)
+            car1.get_class_var
+        ";
+        let expected = Value::FixNum(22222);
+        eval_script(program, expected);
+    }
 
     // #[test]
     // fn class_inheritance() {

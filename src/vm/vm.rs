@@ -448,10 +448,20 @@ impl VM {
             NodeKind::Assign(lhs, rhs) => {
                 self.gen(rhs);
                 match lhs.kind {
-                    NodeKind::Ident(id) => self.gen_comp_fixnum(*id as i64),
+                    NodeKind::Ident(id) => {
+                        self.gen_comp_fixnum(*id as i64);
+                        self.push_iseq(Inst::IDENT_ASSIGN);
+                    }
+                    NodeKind::InstanceVar(id) => {
+                        self.gen_comp_fixnum(*id as i64);
+                        self.push_iseq(Inst::INSTANCE_VAR_ASSIGN);
+                    }
+                    NodeKind::ClassVar(id) => {
+                        self.gen_comp_fixnum(*id as i64);
+                        self.push_iseq(Inst::CLASS_VAR_ASSIGN);
+                    }
                     _ => unimplemented!(),
                 }
-                self.push_iseq(Inst::ASSIGN);
             }
             NodeKind::Send(receiver, method, args) => {
                 self.gen(receiver);
@@ -464,6 +474,14 @@ impl VM {
                 self.gen_body(&args.node);
                 self.gen_nodes_with_len(args.args.to_owned());
                 self.push_iseq(Inst::SEND);
+            }
+            NodeKind::InstanceVar(id) => {
+                self.gen_comp_usize(**id);
+                self.push_iseq(Inst::INSTANCE_VAR);
+            }
+            NodeKind::ClassVar(id) => {
+                self.gen_comp_usize(**id);
+                self.push_iseq(Inst::CLASS_VAR);
             }
             _ => {
                 println!("&node.kind: {:?}", &node.kind);
@@ -575,7 +593,12 @@ impl VM {
 
     fn get_val(&mut self) -> usize {
         match self.iseq() {
-            Inst::FIXNUM | Inst::IDENT | Inst::TABLE_IDENT | Inst::CONST => self.plus_stack_pos(1),
+            Inst::FIXNUM
+            | Inst::IDENT
+            | Inst::TABLE_IDENT
+            | Inst::CONST
+            | Inst::CLASS_VAR
+            | Inst::INSTANCE_VAR => self.plus_stack_pos(1),
             _ => unimplemented!(),
         }
         let mut num = 0;
@@ -812,7 +835,7 @@ impl VM {
                     let val = self.class_stack();
                     self.exec_stack().push(val);
                 }
-                Inst::ASSIGN => {
+                Inst::IDENT_ASSIGN => {
                     self.plus_stack_pos(1);
                     let id = self.pop_value().ident();
                     let rhs = self.pop_value();
@@ -825,6 +848,70 @@ impl VM {
                         }
                     }
                     self.exec_stack().push(rhs);
+                }
+                Inst::INSTANCE_VAR_ASSIGN => {
+                    self.plus_stack_pos(1);
+                    let id = self.pop_value().ident();
+                    let rhs = self.pop_value();
+
+                    match self.env() {
+                        Env::ClassRef(r) => {
+                            let instance_var =
+                                self.class_info_with_ref(r).instance_var.get_mut(&id);
+                            match instance_var {
+                                Some(val) => {
+                                    *val = rhs.clone();
+                                }
+                                None => {
+                                    self.class_info_with_ref(r)
+                                        .instance_var
+                                        .insert(id, rhs.clone());
+                                }
+                            }
+                        }
+                        Env::InstanceRef(r) => {
+                            match self.instance_ref(r).instance_var.get_mut(&id) {
+                                Some(val) => {
+                                    *val = rhs.clone();
+                                }
+                                None => {
+                                    self.instance_ref(r).instance_var.insert(id, rhs.clone());
+                                }
+                            }
+                        }
+                    };
+                }
+                Inst::CLASS_VAR_ASSIGN => {
+                    self.plus_stack_pos(1);
+                    let id = self.pop_value().ident();
+                    let rhs = self.pop_value();
+                    match self.env() {
+                        Env::ClassRef(r) => {
+                            let class_var = self.class_info_with_ref(r).class_var.get_mut(&id);
+                            match class_var {
+                                Some(val) => {
+                                    *val = rhs.clone();
+                                }
+                                None => {
+                                    self.class_info_with_ref(r)
+                                        .class_var
+                                        .insert(id, rhs.clone());
+                                }
+                            }
+                        }
+                        Env::InstanceRef(r) => {
+                            let class_info = self.class_info_with_instance(r);
+                            let class_var = class_info.class_var.get_mut(&id);
+                            match class_var {
+                                Some(val) => {
+                                    *val = rhs.clone();
+                                }
+                                None => {
+                                    panic!("This class variable not defined. {:?}", id);
+                                }
+                            }
+                        }
+                    }
                 }
                 Inst::END => {
                     self.plus_stack_pos(1);
@@ -1066,6 +1153,31 @@ impl VM {
                     let val = self.push_fixnum();
                     self.exec_stack().push(val);
                 }
+                Inst::INSTANCE_VAR => {
+                    self.plus_stack_pos(1);
+                    let id = self.pop_value().ident();
+                    match self.env() {
+                        Env::InstanceRef(r) => {
+                            let val = self.instance_value(r, id);
+                            self.exec_stack().push(val);
+                        }
+                        _ => unimplemented!(),
+                    }
+                }
+                Inst::CLASS_VAR => {
+                    self.plus_stack_pos(1);
+                    let id = self.pop_value().ident();
+                    match self.env() {
+                        Env::ClassRef(r) => {
+                            let val = self.class_value(r, id);
+                            self.exec_stack().push(val);
+                        }
+                        Env::InstanceRef(r) => {
+                            let val = self.class_value_with_instance(r, id);
+                            self.exec_stack().push(val);
+                        }
+                    }
+                }
                 _ => unimplemented!(),
             }
         }
@@ -1110,30 +1222,30 @@ impl VM {
         self.instance_table.get_mut(instance_ref)
     }
 
-    // fn instance_value(&mut self, instance_ref: InstanceRef, id: IdentId) -> Value {
-    //     self.instance_table
-    //         .get_mut(instance_ref)
-    //         .instance_var
-    //         .get(&id)
-    //         .unwrap()
-    //         .to_owned()
-    // }
+    fn instance_value(&mut self, instance_ref: InstanceRef, id: IdentId) -> Value {
+        self.instance_table
+            .get_mut(instance_ref)
+            .instance_var
+            .get(&id)
+            .unwrap()
+            .to_owned()
+    }
 
-    // fn class_value(&mut self, class_ref: ClassRef, id: IdentId) -> Value {
-    //     self.class_info_with_ref(class_ref)
-    //         .class_var
-    //         .get_mut(&id)
-    //         .unwrap()
-    //         .to_owned()
-    // }
+    fn class_value(&mut self, class_ref: ClassRef, id: IdentId) -> Value {
+        self.class_info_with_ref(class_ref)
+            .class_var
+            .get_mut(&id)
+            .unwrap()
+            .to_owned()
+    }
 
-    // fn class_value_with_instance(&mut self, instance_ref: InstanceRef, id: IdentId) -> Value {
-    //     self.class_info_with_instance(instance_ref)
-    //         .class_var
-    //         .get_mut(&id)
-    //         .unwrap()
-    //         .to_owned()
-    // }
+    fn class_value_with_instance(&mut self, instance_ref: InstanceRef, id: IdentId) -> Value {
+        self.class_info_with_instance(instance_ref)
+            .class_var
+            .get_mut(&id)
+            .unwrap()
+            .to_owned()
+    }
 
     fn add_subclass(&mut self, info: ClassRef, inheritence_class_id: Option<IdentId>) {
         if let Some(inheritence_class_id) = inheritence_class_id {

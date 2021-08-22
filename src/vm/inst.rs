@@ -4,7 +4,7 @@ pub struct Inst;
 impl Inst {
     pub const NIL: u8 = 1;
     pub const SELF_VALUE: u8 = 2;
-    pub const ASSIGN: u8 = 3;
+    pub const IDENT_ASSIGN: u8 = 3;
     pub const FIXNUM: u8 = 4;
     pub const DECIMALNUM: u8 = 5;
     pub const BOOL: u8 = 6;
@@ -19,6 +19,10 @@ impl Inst {
     pub const FUNC_DECL: u8 = 15;
     pub const CLASS_DECL: u8 = 16;
     pub const CONST: u8 = 17;
+    pub const INSTANCE_VAR: u8 = 18;
+    pub const INSTANCE_VAR_ASSIGN: u8 = 19;
+    pub const CLASS_VAR: u8 = 20;
+    pub const CLASS_VAR_ASSIGN: u8 = 21;
 
     pub const ADD: u8 = 40;
     pub const SUB: u8 = 41;
