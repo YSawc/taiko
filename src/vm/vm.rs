@@ -183,6 +183,16 @@ impl VM {
         self.class_info_with_ref(env)
     }
 
+    pub fn update_propagated_var(&mut self) {
+        let lvar_table = self.local_scope().clone().lvar_table;
+        let propagated_table = self.local_scope().clone().propagated_table;
+        self.scope_stack.pop();
+        for (id, _) in propagated_table.into_iter() {
+            *self.local_scope().lvar_table.get_mut(&id).unwrap() =
+                lvar_table.get(&id).unwrap().clone();
+        }
+    }
+
     pub fn builtin_puts(&mut self, _receiver: Value, args: Args) -> Value {
         let args = args.args;
         for arg in args {
@@ -568,11 +578,6 @@ impl VM {
         let name = self.ident_table.get_name(id);
         self.class_table.new_class(id, name, ptr)
     }
-
-    // fn new_class_info(&mut self, id: IdentId, body: Node) -> ClassRef {
-    //     let name = self.ident_table.get_name(id).clone();
-    //     self.class_table.new_class(id, name, body)
-    // }
 
     fn new_propagated_local_var_stack(&mut self) {
         let mut last_scope_stack = self.scope_stack.last_mut().unwrap().to_owned();
@@ -1008,7 +1013,6 @@ impl VM {
                             ptr,
                             local_scope,
                         } => {
-                            self.new_propagated_local_var_stack();
                             let args_len = args.len();
                             self.scope_stack.push(local_scope);
                             for (i, param) in params.iter().enumerate() {
@@ -1255,15 +1259,6 @@ impl VM {
                 .insert(inheritence_class_id, ClassRef(*inheritence_class_id + 1));
         }
     }
-
-    // fn add_subclass(&mut self, info: ClassRef, inheritence_class_id: Option<IdentId>) {
-    //     if let Some(inheritence_class_id) = inheritence_class_id {
-    //         let class = self.class_info_with_ref(info);
-    //         class
-    //             .subclass
-    //             .insert(inheritence_class_id, ClassRef(*inheritence_class_id + 1));
-    //     }
-    // }
 
     fn get_method_info(&mut self, id: IdentId) -> MethodInfo {
         for env in self.env.clone().iter_mut().rev() {

@@ -319,37 +319,37 @@ mod test {
         eval_script(program, expected);
     }
 
-    // #[test]
-    // fn class1() {
-    //     let program = "
-    //         class Vec
-    //           @xxx=100
-    //           def set_xxx(x)
-    //             @xxx = x
-    //           end
-    //           def len(x,y)
-    //             def sq(x)
-    //               x*x
-    //             end
-    //             sq(x)+sq(y)
-    //           end
-    //           def get_xxx
-    //             @xxx
-    //           end
-    //         end
-    //         foo1 = Vec.new
-    //         foo1.set_xxx(1)
-    //         assert(25, foo1.len(3,4))
-    //         foo1.set_xxx(777)
-    //         foo2 = Vec.new
-    //         assert(777, foo1.get_xxx)
-    //         foo2.set_xxx(999)
-    //         assert(777, foo1.get_xxx)
-    //         assert(999, foo2.get_xxx)
-    //     ";
-    //     let expected = Value::Nil;
-    //     eval_script(program, expected);
-    // }
+    #[test]
+    fn class1() {
+        let program = "
+            class Vec
+              @xxx=100
+              def set_xxx(x)
+                @xxx = x
+              end
+              def len(x,y)
+                def sq(x)
+                  x*x
+                end
+                sq(x)+sq(y)
+              end
+              def get_xxx
+                @xxx
+              end
+            end
+            foo1 = Vec.new
+            foo1.set_xxx(1)
+            assert(25, foo1.len(3,4))
+            foo1.set_xxx(777)
+            foo2 = Vec.new
+            assert(777, foo1.get_xxx)
+            foo2.set_xxx(999)
+            assert(777, foo1.get_xxx)
+            assert(999, foo2.get_xxx)
+        ";
+        let expected = Value::Nil;
+        eval_script(program, expected);
+    }
 
     #[test]
     fn class2() {
@@ -423,38 +423,38 @@ mod test {
         eval_script(program, expected);
     }
 
-    // #[test]
-    // fn class_inheritance() {
-    //     let program = "
-    //       class A
-    //         @xxx=100
-    //         def set_xxx(x)
-    //           @xxx = x
-    //         end
-    //         def len(x,y)
-    //           def sq(x)
-    //             x*x
-    //           end
-    //           sq(x)+sq(y)
-    //         end
-    //         def get_xxx
-    //           @xxx
-    //         end
-    //       end
+    #[test]
+    fn class_inheritance() {
+        let program = "
+          class A
+            @xxx=100
+            def set_xxx(x)
+              @xxx = x
+            end
+            def len(x,y)
+              def sq(x)
+                x*x
+              end
+              sq(x)+sq(y)
+            end
+            def get_xxx
+              @xxx
+            end
+          end
 
-    //       class B < A
-    //       end
-    //       foo1 = A.new
-    //       foo1.set_xxx(1)
-    //       assert(25, foo1.len(3,4))
-    //       foo1.set_xxx(777)
-    //       foo2 = B.new
-    //       assert(777, foo1.get_xxx)
-    //       foo2.set_xxx(999)
-    //       assert(777, foo1.get_xxx)
-    //       assert(999, foo2.get_xxx)
-    //     ";
-    //     let expected = Value::Nil;
-    //     eval_script(program, expected);
-    // }
+          class B < A
+          end
+          foo1 = A.new
+          foo1.set_xxx(1)
+          assert(25, foo1.len(3,4))
+          foo1.set_xxx(777)
+          foo2 = B.new
+          assert(777, foo1.get_xxx)
+          foo2.set_xxx(999)
+          assert(777, foo1.get_xxx)
+          assert(999, foo2.get_xxx)
+        ";
+        let expected = Value::Nil;
+        eval_script(program, expected);
+    }
 }
