@@ -1,6 +1,6 @@
 use clap::{App, Arg};
-use taiko::eval::eval::*;
 use taiko::parser::parser::*;
+use taiko::vm::vm::*;
 extern crate clap;
 extern crate rustyline;
 
@@ -27,8 +27,8 @@ fn repl() {
     let mut rl = rustyline::Editor::<()>::new();
     let mut program = String::new();
     let mut parser = Parser::new();
-    let mut eval = Evaluator::new();
-    eval.repl_init_method(parser.lexer.source_info.clone(), parser.ident_table.clone());
+    let mut vm = VM::new();
+    vm.repl_init_method(parser.lexer.source_info.clone(), parser.ident_table.clone());
     loop {
         let prompt = if program.len() == 0 { ">" } else { "*" };
         let readline = rl.readline(&format!("irb:{} ", prompt).to_string());
@@ -45,11 +45,12 @@ fn repl() {
         let ident_table = parser.ident_table.clone();
         match parser.parse_program(program.clone()) {
             Ok(node) => {
-                eval.repl_init_method(parser.lexer.source_info.clone(), parser.ident_table.clone());
-                match eval.eval(&node) {
+                vm.repl_init_method(parser.lexer.source_info.clone(), parser.ident_table.clone());
+                vm.init_iseq(node);
+                match vm.eval() {
                     Ok(result) => {
-                        parser.lexer.source_info = eval.source_info.clone();
-                        parser.ident_table = eval.ident_table.clone();
+                        parser.lexer.source_info = vm.source_info.clone();
+                        parser.ident_table = vm.ident_table.clone();
                         println!("=> {:?}", result);
                     }
                     Err(_) => {
@@ -106,9 +107,10 @@ fn file_read(file_name: impl Into<String>) {
     let res = parser.parse_program(file_body);
     match res {
         Ok(node) => {
-            let mut eval = Evaluator::new();
-            eval.init(parser.lexer.source_info, parser.ident_table);
-            match eval.eval(&node) {
+            let mut vm = VM::new();
+            vm.repl_init_method(parser.lexer.source_info.clone(), parser.ident_table.clone());
+            vm.init_iseq(node);
+            match vm.eval() {
                 Ok(result) => println!("-> {:?}", &result),
                 Err(_) => {}
             }

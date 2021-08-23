@@ -5,30 +5,28 @@ use crate::util::util::*;
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeKind {
     None,
+    Line,
     SelfValue,
     Number(i64),
     DecimalNumber(f64),
     String(String),
-    Add(Box<Node>, Box<Node>),
-    Sub(Box<Node>, Box<Node>),
-    Mul(Box<Node>, Box<Node>),
-    Div(Box<Node>, Box<Node>),
     Assign(Box<Node>, Box<Node>),
     BinOp(BinOp, Box<Node>, Box<Node>),
     CompStmt(Vec<Node>),
     If(Box<Node>, Box<Node>, Box<Node>),
     Ident(IdentId),
+    TableIdent(IdentId),
     InstanceVar(IdentId),
     ClassVar(IdentId),
     GlobalIdent(IdentId),
     Const(IdentId),
     Param(IdentId),
-    FuncDecl(IdentId, NodeVec, Box<Node>),
+    FuncDecl(IdentId, Vec<Node>, Box<Node>),
     ClassDecl(IdentId, Box<Node>, Option<IdentId>),
     BlockDecl(Box<Node>),
     Send(Box<Node>, Box<Node>, Box<ParsedArgs>),
     Table(Box<Node>),
-    Vec(Vec<Node>),
+    Array(Vec<Node>),
     ArrayIndex(Box<Node>, i64),
 }
 
@@ -49,13 +47,13 @@ pub enum BinOp {
 }
 
 pub type Node = Annot<NodeKind>;
-pub type NodeVec = Vec<Node>;
 
 impl std::fmt::Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
             NodeKind::BinOp(op, lhs, rhs) => write!(f, "[{:?} ( {}, {}  )]", op, lhs, rhs),
             NodeKind::Ident(id) => write!(f, "(LocalVar {:?})", id),
+            NodeKind::TableIdent(id) => write!(f, "(TablelVar {:?})", id),
             NodeKind::GlobalIdent(id) => write!(f, "(GlobalVar {:?})", id),
             NodeKind::Send(receiver, method_name, args) => {
                 write!(f, "[ Send [{}]: [{}] ", receiver, method_name)?;
@@ -123,6 +121,10 @@ impl Node {
         Node::new(NodeKind::Ident(id), loc)
     }
 
+    pub fn new_table_identifier(id: IdentId, loc: Loc) -> Self {
+        Node::new(NodeKind::TableIdent(id), loc)
+    }
+
     pub fn new_instance_var(id: IdentId, loc: Loc) -> Self {
         Node::new(NodeKind::InstanceVar(id), loc)
     }
@@ -154,6 +156,10 @@ impl Node {
         )
     }
 
+    pub fn new_line(loc: Loc) -> Self {
+        Node::new(NodeKind::Line, loc)
+    }
+
     pub fn new_block_decl(body: Node) -> Self {
         let loc = Loc::new(body.loc());
         Node::new(NodeKind::BlockDecl(Box::new(body)), loc)
@@ -170,8 +176,8 @@ impl Node {
         )
     }
 
-    pub fn new_vec(contents: Vec<Node>, loc: Loc) -> Self {
-        Node::new(NodeKind::Vec(Box::new(contents).to_vec()), loc)
+    pub fn new_array(contents: Vec<Node>, loc: Loc) -> Self {
+        Node::new(NodeKind::Array(Box::new(contents).to_vec()), loc)
     }
 
     pub fn new_array_index(receiver: Node, num: i64, loc: Loc) -> Self {

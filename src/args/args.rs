@@ -1,19 +1,21 @@
-use crate::node::node::*;
+// use crate::node::node::*;
+// use crate::util::util::*;
 use crate::value::value::*;
+use crate::vm::vm::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Args {
-    pub node: Node,
-    pub value: Vec<Value>,
-    pub table: Node,
+    pub body: Vec<ISeq>,
+    pub args: Vec<Value>,
+    pub table: u8,
 }
 
 impl Args {
     pub fn new() -> Self {
         Self {
-            node: Node::new_none(),
-            value: vec![],
-            table: Node::new_none(),
+            body: vec![],
+            args: vec![],
+            table: 0,
         }
     }
 }

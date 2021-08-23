@@ -1,14 +1,14 @@
-use crate::eval::eval::*;
-use crate::node::node::*;
+// use crate::node::node::*;
 use crate::util::util::*;
 use crate::value::value::*;
+use crate::vm::vm::*;
 use rustc_hash::FxHashMap;
 
 #[derive(Debug, Clone)]
 pub struct ClassInfo {
     pub id: IdentId,
     pub name: String,
-    pub body: Box<Node>,
+    pub ptr: Box<usize>,
     pub ident_table: IdentifierTable,
     pub instance_var: FxHashMap<IdentId, Value>,
     pub instance_method_table: MethodTable,
@@ -19,11 +19,11 @@ pub struct ClassInfo {
 }
 
 impl ClassInfo {
-    pub fn new(id: IdentId, name: String, body: Node) -> Self {
+    pub fn new(id: IdentId, name: String, ptr: usize) -> Self {
         Self {
             id,
             name,
-            body: Box::new(body),
+            ptr: Box::new(ptr),
             ident_table: IdentifierTable::default(),
             instance_var: FxHashMap::default(),
             instance_method_table: FxHashMap::default(),
@@ -41,6 +41,12 @@ impl ClassInfo {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ClassRef(pub usize);
+
+impl ClassRef {
+    pub fn to_val(&mut self) -> Value {
+        Value::Class(*self)
+    }
+}
 
 impl std::hash::Hash for ClassRef {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -68,8 +74,8 @@ impl GlobalClassTable {
         }
     }
 
-    pub fn new_class(&mut self, id: IdentId, name: String, body: Node) -> ClassRef {
-        let info = ClassInfo::new(id, name, body);
+    pub fn new_class(&mut self, id: IdentId, name: String, ptr: usize) -> ClassRef {
+        let info = ClassInfo::new(id, name, ptr);
         let new_class = ClassRef(self.class_id);
         self.class_id += 1;
         self.table.insert(new_class, info);
