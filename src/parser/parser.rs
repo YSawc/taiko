@@ -686,6 +686,8 @@ impl Parser {
                 let id = self.ident_table.get_ident_id(name);
                 if name == "self" {
                     Ok(Node::new(NodeKind::SelfValue, loc))
+                } else if name == "nil" {
+                    Ok(Node::new(NodeKind::None, loc))
                 } else {
                     Ok(Node::new_identifier(id, loc))
                 }
