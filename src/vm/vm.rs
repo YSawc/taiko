@@ -995,6 +995,20 @@ impl VM {
                     let val = self.eval_ge(lhs, rhs)?;
                     self.exec_stack().push(val);
                 }
+                Inst::LT => {
+                    self.plus_stack_pos(1);
+                    let rhs = self.pop_value();
+                    let lhs = self.pop_value();
+                    let val = self.eval_lt(lhs, rhs)?;
+                    self.exec_stack().push(val);
+                }
+                Inst::LE => {
+                    self.plus_stack_pos(1);
+                    let rhs = self.pop_value();
+                    let lhs = self.pop_value();
+                    let val = self.eval_le(lhs, rhs)?;
+                    self.exec_stack().push(val);
+                }
                 Inst::SEND => {
                     self.plus_stack_pos(1);
                     self.save_eval_info();
@@ -1396,6 +1410,20 @@ impl VM {
         match (lhs, rhs) {
             (Value::FixNum(lhs), Value::FixNum(rhs)) => Ok(Value::Bool(lhs > rhs)),
             (_, _) => unimplemented!("NoMethodError: '>'"),
+        }
+    }
+
+    fn eval_le(&mut self, lhs: Value, rhs: Value) -> EvalResult {
+        match (lhs, rhs) {
+            (Value::FixNum(lhs), Value::FixNum(rhs)) => Ok(Value::Bool(lhs <= rhs)),
+            (_, _) => unimplemented!("NoMethodError: '<='"),
+        }
+    }
+
+    fn eval_lt(&mut self, lhs: Value, rhs: Value) -> EvalResult {
+        match (lhs, rhs) {
+            (Value::FixNum(lhs), Value::FixNum(rhs)) => Ok(Value::Bool(lhs < rhs)),
+            (_, _) => unimplemented!("NoMethodError: '<'"),
         }
     }
 }
