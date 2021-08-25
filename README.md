@@ -1,11 +1,14 @@
 Toy ruby interpreter implemented by pure rust.
 
-# sample
+## Feature
+- Virtual machine.
+
+## Sample
 
 sample files: ./sample/sample.rb
 
 run sample: `cargo run ./sample/sample.rb`
 
-# test
+## Test
 
 run test: `cargo test`
