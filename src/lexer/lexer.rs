@@ -246,13 +246,21 @@ impl Lexer {
             ";" => Punct::Semi,
             ":" => Punct::Colon,
             "," => Punct::Comma,
-            "." => Punct::Dot,
             "|" => Punct::Pipe
         }
 
         match punct.contains_key(&ch.to_string()) {
             true => Ok(self.new_punct(*punct.get(&ch.to_string()).unwrap())),
             false => match ch {
+                '.' => {
+                    let ch = self.peek()?;
+                    if ch == '.' {
+                        self.get()?;
+                        Ok(self.new_punct(Punct::Range))
+                    } else {
+                        Ok(self.new_punct(Punct::Dot))
+                    }
+                }
                 '=' => {
                     let ch = self.peek()?;
                     if ch == '=' {

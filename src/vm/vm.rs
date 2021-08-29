@@ -293,6 +293,17 @@ impl VM {
                     });
                 }
             }
+            Value::Range(mut rhs, mut lhs) => {
+                for c in lhs.value()..=rhs.value() {
+                    self.set_stack_pos(0);
+                    self.new_propagated_local_var_stack();
+                    self.lvar_table_as_mut()
+                        .insert(IdentId(args.table.into()), Value::FixNum(c));
+                    self.eval_seq().unwrap_or_else(|err| {
+                        panic!("Builtin#each: error occured while eval_node. {:?}.", err)
+                    });
+                }
+            }
             _ => panic!(
                 "Builtin#each: must has array reciver, bud god {:?}.",
                 receiver
@@ -472,6 +483,11 @@ impl VM {
                     }
                     _ => unimplemented!(),
                 }
+            }
+            NodeKind::Range(lhs, rhs) => {
+                self.gen(lhs);
+                self.gen(rhs);
+                self.push_iseq(Inst::RANGE);
             }
             NodeKind::Send(receiver, method, args) => {
                 self.gen(receiver);
@@ -1196,6 +1212,13 @@ impl VM {
                         }
                     }
                 }
+                Inst::RANGE => {
+                    self.plus_stack_pos(1);
+                    let rhs = self.pop_value();
+                    let lhs = self.pop_value();
+                    let val = Value::Range(Box::new(rhs), Box::new(lhs));
+                    self.exec_stack().push(val);
+                }
                 _ => unimplemented!(),
             }
         }
@@ -1205,8 +1228,9 @@ impl VM {
         self.eval_seq()?;
         Ok(self.pop_value())
     }
+
     fn class_info_with_ref(&mut self, class_ref: ClassRef) -> &mut ClassInfo {
-        self.class_table.table.get_mut(&class_ref).unwrap()
+        self.class_table.get_mut(class_ref)
     }
 
     fn class_info_with_id(&mut self, ident_id: IdentId) -> ClassInfo {
@@ -1481,6 +1505,9 @@ impl VM {
             }
             Value::Array(v) => {
                 format!("{:?}", v)
+            }
+            Value::Range(s, e) => {
+                format!("{:?}..{:?}", s, e)
             }
         }
     }

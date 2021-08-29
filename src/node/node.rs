@@ -10,6 +10,7 @@ pub enum NodeKind {
     Number(i64),
     DecimalNumber(f64),
     String(String),
+    Range(Box<Node>, Box<Node>),
     Assign(Box<Node>, Box<Node>),
     BinOp(BinOp, Box<Node>, Box<Node>),
     CompStmt(Vec<Node>),
@@ -141,6 +142,12 @@ impl Node {
         let loc_merge = lhs.loc.merge(rhs.loc);
         let loc = Loc::new(loc_merge);
         Node::new(NodeKind::Assign(Box::new(lhs), Box::new(rhs)), loc)
+    }
+
+    pub fn new_range(lhs: Node, rhs: Node) -> Self {
+        let loc_merge = lhs.loc.merge(rhs.loc);
+        let loc = Loc::new(loc_merge);
+        Node::new(NodeKind::Range(Box::new(lhs), Box::new(rhs)), loc)
     }
 
     pub fn new_method_decl(id: IdentId, params: Vec<Node>, body: Node) -> Self {

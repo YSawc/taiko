@@ -23,6 +23,7 @@ impl Inst {
     pub const INSTANCE_VAR_ASSIGN: u8 = 19;
     pub const CLASS_VAR: u8 = 20;
     pub const CLASS_VAR_ASSIGN: u8 = 21;
+    pub const RANGE: u8 = 22;
 
     pub const ADD: u8 = 40;
     pub const SUB: u8 = 41;

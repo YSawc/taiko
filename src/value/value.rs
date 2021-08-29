@@ -13,6 +13,7 @@ pub enum Value {
     Instance(InstanceRef),
     SelfClass(Class),
     Array(Vec<Value>),
+    Range(Box<Value>, Box<Value>),
 }
 
 impl Value {

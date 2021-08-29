@@ -379,6 +379,10 @@ impl Parser {
         if self.get_if_punct(Punct::Assign) {
             let rhs = self.parse_arg()?;
             Ok(Node::new_assign(lhs, rhs))
+        } else if self.get_if_punct(Punct::Range) {
+            self.expect_line_context_literal(LineContext::Literal(Literal::Number))?;
+            let rhs = self.parse_arg()?;
+            Ok(Node::new_range(lhs, rhs))
         } else {
             Ok(lhs)
         }

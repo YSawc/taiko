@@ -91,7 +91,7 @@ impl GlobalClassTable {
     pub fn get_mut(&mut self, class_ref: ClassRef) -> &mut ClassInfo {
         self.table
             .get_mut(&class_ref)
-            .unwrap_or_else(|| panic!("ClobalClassTable#get_mut(): ClassRef is not valid."))
+            .unwrap_or_else(|| panic!("ClobalClassTable#get_mut(): {:?} is not valid.", class_ref))
     }
 }
 

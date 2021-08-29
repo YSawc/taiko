@@ -84,6 +84,7 @@ pub enum Punct {
     Assign,
     Comment,
     Dot,
+    Range,
     Pipe,
     AtAt,
     At,

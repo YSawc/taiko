@@ -308,7 +308,7 @@ mod test {
     }
 
     #[test]
-    fn each() {
+    fn each1() {
         let program = "
             v = ['one', 2, 'three', 4]
             v.each do |c|
@@ -316,6 +316,19 @@ mod test {
             end
         ";
         let expected = Value::Nil;
+        eval_script(program, expected);
+    }
+
+    #[test]
+    fn each2() {
+        let program = "
+            a = 0
+            (255..500).each do |c|
+              a = a + c
+            end
+            a
+        ";
+        let expected = Value::FixNum(92865);
         eval_script(program, expected);
     }
 
