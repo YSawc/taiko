@@ -1327,10 +1327,11 @@ impl VM {
 
     fn add_subclass(&mut self, info: ClassRef, inheritence_class_id: Option<IdentId>) {
         if let Some(inheritence_class_id) = inheritence_class_id {
+            let inheritence_class_ref = self.class_ref_with_id(inheritence_class_id);
             let class = self.class_info_with_ref(info);
             class
                 .subclass
-                .insert(inheritence_class_id, ClassRef(*inheritence_class_id + 1));
+                .insert(inheritence_class_id, inheritence_class_ref);
         }
     }
 
