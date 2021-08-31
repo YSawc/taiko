@@ -55,6 +55,16 @@ impl Value {
         }
     }
 
+    pub fn range(&mut self) -> (i64, i64) {
+        match self {
+            Value::Range(e, s) => match (*e.to_owned(), *s.to_owned()) {
+                (Value::FixNum(e), Value::FixNum(s)) => (s, e),
+                _ => unimplemented!(),
+            },
+            _ => unimplemented!(),
+        }
+    }
+
     pub fn to_b(self) -> bool {
         match self {
             Value::Nil => false,

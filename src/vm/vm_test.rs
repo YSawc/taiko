@@ -333,6 +333,20 @@ mod test {
     }
 
     #[test]
+    fn for1() {
+        let program = "
+            r = 0
+            a = (255..1000)
+            for n in a
+              r = r + n
+            end
+            r
+        ";
+        let expected = Value::FixNum(468115);
+        eval_script(program, expected);
+    }
+
+    #[test]
     fn class1() {
         let program = "
             class Vec

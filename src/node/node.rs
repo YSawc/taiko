@@ -29,6 +29,7 @@ pub enum NodeKind {
     Table(Box<Node>),
     Array(Vec<Node>),
     ArrayIndex(Box<Node>, i64),
+    For(IdentId, Box<Node>, Box<Node>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -161,6 +162,11 @@ impl Node {
             NodeKind::ClassDecl(id, Box::new(body), inheritance_class_id),
             loc,
         )
+    }
+
+    pub fn new_for(id: IdentId, table: Node, body: Node) -> Self {
+        let loc = Loc::new(body.loc());
+        Node::new(NodeKind::For(id, Box::new(table), Box::new(body)), loc)
     }
 
     pub fn new_line(loc: Loc) -> Self {

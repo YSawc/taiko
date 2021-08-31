@@ -509,6 +509,13 @@ impl VM {
                 self.gen_comp_usize(**id);
                 self.push_iseq(Inst::CLASS_VAR);
             }
+            NodeKind::For(id, table, body) => {
+                let num = id.deref();
+                self.gen_comp_usize(*num);
+                self.gen(table);
+                self.gen_body(body);
+                self.push_iseq(Inst::FOR);
+            }
             _ => {
                 println!("&node.kind: {:?}", &node.kind);
                 println!("{:?}", self.ident_table);
@@ -1218,6 +1225,35 @@ impl VM {
                     let lhs = self.pop_value();
                     let val = Value::Range(Box::new(rhs), Box::new(lhs));
                     self.exec_stack().push(val);
+                }
+                Inst::FOR => {
+                    self.plus_stack_pos(1);
+                    let ptr = self.get_ptr();
+                    let (s, e) = self.pop_value().range();
+                    let id = self.pop_value().ident();
+                    self.save_eval_info();
+                    *self.iseq_pos_mut() = ptr;
+
+                    for i in s..=e {
+                        self.new_propagated_local_var_stack();
+
+                        let imm_value = Value::FixNum(i);
+                        self.lvar_table_as_mut().insert(id, imm_value);
+
+                        self.eval_seq().unwrap_or_else(|err| {
+                            panic!("for: error occured while eval_node. {:?};", err)
+                        });
+                        self.init_eval_stack();
+                        let local_scope = self.local_scope().clone();
+                        self.scope_stack.pop();
+                        for (id, n) in local_scope.lvar_table.into_iter() {
+                            if self.local_scope().lvar_table.contains_key(&id) {
+                                *self.local_scope().lvar_table.get_mut(&id).unwrap() = n;
+                            }
+                        }
+                    }
+                    self.exec_stack().push(Value::Nil);
+                    self.return_stack();
                 }
                 _ => unimplemented!(),
             }

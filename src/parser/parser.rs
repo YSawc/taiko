@@ -742,6 +742,10 @@ impl Parser {
                 let node = self.parse_class()?;
                 Ok(node)
             }
+            TokenKind::Reserved(Reserved::For) => {
+                let node = self.parse_for()?;
+                Ok(node)
+            }
             TokenKind::EOF => Err(self.error_eof(loc)),
             _ => Err(self.error_unexpected(loc)),
         }
@@ -770,6 +774,23 @@ impl Parser {
         self.reset_line_context();
 
         Ok(Node::new_class_decl(id, body, inheritance_class_id))
+    }
+
+    pub fn parse_for(&mut self) -> Result<Node, ParseError> {
+        self.expect_first_line_context()?;
+        let loc = self.loc();
+        let table_ident = match &self.get().kind {
+            TokenKind::Ident(s) => s.clone(),
+            _ => return Err(self.error_unexpected(loc)),
+        };
+        let id = self.ident_table.get_ident_id(&table_ident);
+        self.expect_reserved(Reserved::In)?;
+        let table = self.parse_arg_add()?;
+        self.skip_space();
+        let body = self.parse_comp_stmt()?;
+        self.expect_reserved(Reserved::End)?;
+
+        Ok(Node::new_for(id, table, body))
     }
 
     pub fn parse_line(&mut self) -> Result<Node, ParseError> {

@@ -63,7 +63,9 @@ impl Lexer {
             "if" => Reserved::If,
             "return" => Reserved::Return,
             "then" => Reserved::Then,
-            "true" => Reserved::True
+            "true" => Reserved::True,
+            "for" => Reserved::For,
+            "in" => Reserved::In
         };
 
         let source_info = SourceInfo::new();
